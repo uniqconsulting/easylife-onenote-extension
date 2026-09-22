@@ -102,7 +102,6 @@ In Azure, open **Function App → Settings → Environment variables** and add t
 
 | Setting | Value |
 |---|---|
-| `FUNCTIONS_WORKER_RUNTIME` | `node` |
 | `GRAPH_TENANT_ID` | Microsoft 365 tenant ID |
 | `GRAPH_CLIENT_ID` | Client ID of the Graph app registration |
 | `GRAPH_CLIENT_SECRET` | Client secret of the Graph app registration |

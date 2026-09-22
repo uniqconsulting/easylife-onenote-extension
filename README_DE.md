@@ -100,7 +100,6 @@ In Azure: **Function App → Settings → Environment variables**. Diese Werte a
 
 | Einstellung | Wert |
 |---|---|
-| `FUNCTIONS_WORKER_RUNTIME` | `node` |
 | `GRAPH_TENANT_ID` | Tenant-ID des Microsoft-365-Tenants |
 | `GRAPH_CLIENT_ID` | Client-ID der Graph-App-Registrierung |
 | `GRAPH_CLIENT_SECRET` | Client-Secret der Graph-App-Registrierung |
