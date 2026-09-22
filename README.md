@@ -79,6 +79,14 @@ Deployment Center can create these secrets automatically. If you configure the w
 | `AZURE_TENANT_ID` | Microsoft Entra tenant ID |
 | `AZURE_SUBSCRIPTION_ID` | Azure subscription ID |
 
+The workflow deploys to the Function App named in the repository variable `AZURE_FUNCTIONAPP_NAME`. Add it under **Settings → Secrets and variables → Actions → Variables** in your fork, otherwise the workflow targets the upstream Function App and the deployment fails.
+
+| Variable | Value |
+|---|---|
+| `AZURE_FUNCTIONAPP_NAME` | Name of your own Function App |
+
+If you connect your Function App through Azure Deployment Center instead, Azure commits its own workflow file with its own secret names. In that case delete or ignore the workflow included here so both do not run.
+
 The deployment identity needs at least **Contributor** or **Website Contributor** on the Function App. A federated credential for your fork and the `main` branch is also required.
 
 ## 3. Configure Microsoft Graph

@@ -77,6 +77,14 @@ Der Workflow verwendet diese drei Secrets. Azure Deployment Center kann sie beim
 | `AZURE_TENANT_ID` | ID des Microsoft-Entra-Tenants |
 | `AZURE_SUBSCRIPTION_ID` | ID des Azure-Abonnements |
 
+Der Workflow deployt auf die Function App, die in der Repository-Variable `AZURE_FUNCTIONAPP_NAME` steht. Diese unter **Settings → Secrets and variables → Actions → Variables** im Fork anlegen, sonst zeigt der Workflow auf die Function App des Original-Repositories und das Deployment schlägt fehl.
+
+| Variable | Wert |
+|---|---|
+| `AZURE_FUNCTIONAPP_NAME` | Name der eigenen Function App |
+
+Wird die Function App stattdessen über das Azure Deployment Center verbunden, legt Azure einen eigenen Workflow mit eigenen Secret-Namen an. In dem Fall den hier mitgelieferten Workflow löschen oder deaktivieren, damit nicht beide laufen.
+
 Die Deployment-Identität benötigt auf der Function App mindestens **Contributor** oder **Website Contributor**. Zusätzlich muss eine Federated Credential für deinen Fork und den Branch `main` existieren.
 
 ## 3. Microsoft Graph konfigurieren

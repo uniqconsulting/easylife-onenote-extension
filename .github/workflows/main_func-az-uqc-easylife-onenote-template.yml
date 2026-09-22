@@ -1,7 +1,7 @@
 # Docs for the Azure Web Apps Deploy action: https://github.com/azure/functions-action
 # More GitHub Actions for Azure: https://github.com/Azure/actions
 
-name: Build and deploy Node.js project to Azure Function App - func-az-uqc-easylife-onenote-template
+name: Build and deploy Node.js project to Azure Function App
 
 on:
   push:
@@ -67,15 +67,15 @@ jobs:
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_53514566B1814D8BA8D6BC15370F1438 }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_87607167CE244C50B85C4206D420EE0D }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_A6F8815ADA4A432DAF891D60C860839A }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID || secrets.AZUREAPPSERVICE_CLIENTID_53514566B1814D8BA8D6BC15370F1438 }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID || secrets.AZUREAPPSERVICE_TENANTID_87607167CE244C50B85C4206D420EE0D }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID || secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_A6F8815ADA4A432DAF891D60C860839A }}
 
       - name: 'Run Azure Functions Action'
         uses: Azure/functions-action@v1
         id: fa
         with:
-          app-name: 'func-az-uqc-easylife-onenote-template'
+          app-name: ${{ vars.AZURE_FUNCTIONAPP_NAME || 'func-az-uqc-easylife-onenote-template' }}
           slot-name: 'Production'
           package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
           
