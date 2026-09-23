@@ -243,14 +243,18 @@ function notebookNotFound(
   );
 }
 
+async function listNotebookSections(notebook: NotebookLocation, token: string): Promise<string[]> {
+  const children = await listChildren(notebook.driveId, `items/${notebook.folderId}/children`, token);
+  return children
+    .filter((c) => c.file && c.name.toLowerCase().endsWith(SECTION_EXTENSION))
+    .map((c) => normalizeName(c.name));
+}
+
 /** Lists the notebooks and their sections so a wrong name is obvious in the error message. */
 async function describeNotebooks(notebooks: NotebookLocation[], token: string): Promise<string> {
   const described = await Promise.all(
     notebooks.map(async (notebook) => {
-      const children = await listChildren(notebook.driveId, `items/${notebook.folderId}/children`, token);
-      const sections = children
-        .filter((c) => c.file && c.name.toLowerCase().endsWith(SECTION_EXTENSION))
-        .map((c) => normalizeName(c.name));
+      const sections = await listNotebookSections(notebook, token);
       return `${notebook.driveName}/${notebook.folderName} [${sections.join(", ") || "no sections"}]`;
     })
   );
@@ -293,6 +297,13 @@ async function findNotebooks(
     }
 
     if (!match) {
+      // OneNote links expose section names, so a "notebook" name that is really a section
+      // means the notebook filter was not intended.
+      const sections = await Promise.all(notebooks.map((n) => listNotebookSections(n, token)));
+      if (sections.some((names) => names.includes(normalizeName(name)))) {
+        return notebooks;
+      }
+
       throw new Error(
         `Notebook "${name}" not found in site ${siteId}. ` +
           `Notebooks found: ${await describeNotebooks(notebooks, token)}. ` +
