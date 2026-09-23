@@ -218,11 +218,49 @@ Jeder Parameter akzeptiert Einzel- und Mehrzahlschreibweise sowie mehrfach wiede
 
 Wird gar kein Parameter gesetzt, werden alle Sections aller gefundenen Vorlage-Notizbücher 1:1 mit ihren Originalnamen kopiert.
 
-Die Teams-Registerkarte eines Kanals ist fest an den Standardabschnitt des Notizbuchs gebunden, dessen Name je nach Tenant-Sprache variiert (`General`, `Allgemein`, ...). Mit `@default` wird genau dieser Abschnitt überschrieben, damit die Vorlage dort erscheint, wo Anwender zuerst hinschauen:
+### Zielabschnitt steuern
+
+Standardmässig wird der Abschnitt der Vorlage übernommen: Im Ziel-Notizbuch entsteht ein eigener Abschnitt mit demselben Namen wie in der Vorlage. Dafür genügt es, `targetSectionName` wegzulassen.
+
+`targetSectionName` steuert, wohin kopiert wird:
+
+| Wert | Ergebnis |
+|---|---|
+| weggelassen oder `@source` | eigener Abschnitt mit dem Namen aus der Vorlage |
+| `@default` | überschreibt den Standardabschnitt (`Allgemein`, `General`, ...) |
+| beliebiger Name | eigener Abschnitt mit genau diesem Namen |
+
+Der Abschnitt der Vorlage bleibt also erhalten:
 
 ```text
-...&templateSectionName=Vorlage&targetSectionName=@default
+...&templateSectionName=Status%20meeting
 ```
+
+Explizit derselbe Abschnitt wie in der Vorlage:
+
+```text
+...&templateSectionName=Status%20meeting&targetSectionName=%40source
+```
+
+Eigener Zielname:
+
+```text
+...&templateSectionName=Status%20meeting&targetSectionName=Besprechungen
+```
+
+Beides lässt sich pro Abschnitt mischen:
+
+```text
+...&templateSectionName=Status%20meeting,Dokumentation&targetSectionName=%40source,%40default
+```
+
+Die Teams-Registerkarte eines Kanals ist fest an den Standardabschnitt des Notizbuchs gebunden, dessen Name je nach Tenant-Sprache variiert (`General`, `Allgemein`, ...). Mit `@default` wird genau dieser Abschnitt überschrieben, damit die Vorlage dort erscheint, wo Anwender zuerst hinschauen. Dann entsteht aber kein eigener Abschnitt:
+
+```text
+...&templateSectionName=Status%20meeting&targetSectionName=%40default
+```
+
+> **Anzeigename gegen Dateiname:** Die Function arbeitet auf den `.one`-Dateien. Der in OneNote angezeigte Abschnittsname steckt jedoch **innerhalb** der Datei. Wurde ein Abschnitt in OneNote umbenannt, können beide auseinanderlaufen: Die Datei heißt zum Beispiel `Status meeting.one`, OneNote zeigt aber `Meeting Notes`. Für `templateSectionName` gilt immer der **Dateiname**, den die Fehlermeldung unter `Available sections` auflistet. Der im Ziel angezeigte Name kommt weiterhin aus der Datei und bleibt deshalb `Meeting Notes`, unabhängig von `targetSectionName`.
 
 Das Ziel wird nicht in der URL konfiguriert. EasyLife sendet die neue Gruppen-ID nach der Bereitstellung im Payload, normalerweise unter `group.id`.
 

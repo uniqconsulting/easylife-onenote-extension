@@ -50,6 +50,8 @@ const NOTEBOOK_MARKER_EXTENSION = ".onetoc2";
 
 // Teams pins its channel tab to the notebook's default section, whose name is localised.
 export const DEFAULT_SECTION_TOKEN = "@default";
+// Keeps the template's own section instead of merging into an existing one.
+export const SOURCE_SECTION_TOKEN = "@source";
 const DEFAULT_SECTION_NAMES = [
   "general",
   "allgemein",
@@ -503,8 +505,13 @@ export async function copyTemplateSectionsToGroup(options: CopyTemplateOptions):
       throw new Error(`Template section "${mapping.from}" not found. Available sections: ${available}`);
     }
 
+    const requestedTarget = normalizeName(mapping.to);
     const targetName =
-      normalizeName(mapping.to) === DEFAULT_SECTION_TOKEN ? (defaultSectionName as string) : mapping.to;
+      requestedTarget === DEFAULT_SECTION_TOKEN
+        ? (defaultSectionName as string)
+        : requestedTarget === SOURCE_SECTION_TOKEN
+          ? sourceSection.item.name
+          : mapping.to;
 
     await copySectionFile(sourceSection.notebook, sourceSection.item.id, targetNotebook, targetName, token);
     copied.push({ from: normalizeName(sourceSection.item.name), to: normalizeName(targetName) });

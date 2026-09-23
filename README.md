@@ -220,11 +220,49 @@ Every parameter accepts singular and plural spellings as well as repeated query 
 
 Without any parameter, every section of every template notebook found is copied 1:1 under its original name.
 
-The Teams channel tab is pinned to the notebook's default section, which is named differently per tenant language (`General`, `Allgemein`, ...). Use `@default` to overwrite exactly that section, so the template appears where users look first:
+### Control the Target Section
+
+By default the template's own section is preserved: a separate section with the same name is created in the target notebook. Simply omit `targetSectionName`.
+
+`targetSectionName` controls where the section is copied to:
+
+| Value | Result |
+|---|---|
+| omitted or `@source` | separate section using the template's name |
+| `@default` | overwrites the default section (`General`, `Allgemein`, ...) |
+| any name | separate section with exactly that name |
+
+Keep the template's section:
 
 ```text
-...&templateSectionName=Meetings&targetSectionName=@default
+...&templateSectionName=Status%20meeting
 ```
+
+The same, stated explicitly:
+
+```text
+...&templateSectionName=Status%20meeting&targetSectionName=%40source
+```
+
+A custom target name:
+
+```text
+...&templateSectionName=Status%20meeting&targetSectionName=Meetings
+```
+
+Both can be mixed per section:
+
+```text
+...&templateSectionName=Status%20meeting,Documentation&targetSectionName=%40source,%40default
+```
+
+The Teams channel tab is pinned to the notebook's default section, which is named differently per tenant language (`General`, `Allgemein`, ...). Use `@default` to overwrite exactly that section, so the template appears where users look first. No separate section is created in that case:
+
+```text
+...&templateSectionName=Status%20meeting&targetSectionName=%40default
+```
+
+> **Display name versus file name:** The function works on the `.one` files, but the section name shown in OneNote is stored **inside** the file. If a section was renamed in OneNote, the two can differ: the file may be called `Status meeting.one` while OneNote displays `Meeting Notes`. `templateSectionName` always refers to the **file name**, which the error message lists under `Available sections`. The name displayed in the target still comes from the file, so it stays `Meeting Notes` regardless of `targetSectionName`.
 
 The target group is not configured in the URL. EasyLife sends the new group ID after provisioning, normally under `group.id`.
 
