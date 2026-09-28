@@ -485,6 +485,7 @@ export interface CopyNotebookResult {
   templateNotebook: string;
   targetNotebook: string;
   notebookUrl: string;
+  notebookEmbedUrl: string;
 }
 
 async function findFirstTemplateNotebook(sources: TemplateSource[], token: string): Promise<NotebookLocation> {
@@ -569,14 +570,16 @@ export async function copyTemplateNotebookToGroup(options: CopyNotebookOptions):
 
   // Doc.aspx opens the notebook in OneNote instead of showing the folder contents.
   const uniqueId = item.sharepointIds?.listItemUniqueId;
-  const notebookUrl = uniqueId
-    ? `${site.webUrl}/_layouts/15/Doc.aspx?sourcedoc={${uniqueId}}&action=edit`
-    : item.webUrl ?? site.webUrl;
+  const docUrl = uniqueId ? `${site.webUrl}/_layouts/15/Doc.aspx?sourcedoc={${uniqueId}}` : undefined;
+  const notebookUrl = docUrl ? `${docUrl}&action=edit` : item.webUrl ?? site.webUrl;
+  // Only the embed view sets frame headers that allow rendering inside a Teams tab.
+  const notebookEmbedUrl = docUrl ? `${docUrl}&action=embedview` : notebookUrl;
 
   return {
     templateNotebook: `${source.driveName}/${source.folderName}`,
     targetNotebook: `${groupNotebook.driveName}/${name}`,
     notebookUrl,
+    notebookEmbedUrl,
   };
 }
 

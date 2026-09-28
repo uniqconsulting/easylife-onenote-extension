@@ -156,7 +156,7 @@ export async function provisionOneNoteTemplate(
       const tabName = resolveTabName(tabValues, targetNotebookNames[0]);
       if (tabName) {
         try {
-          await pinWebsiteTab(targetGroupId, tabName, result.notebookUrl, token);
+          await pinWebsiteTab(targetGroupId, tabName, result.notebookEmbedUrl, result.notebookUrl, token);
           tabPinned = tabName;
         } catch (err) {
           // The notebook is already in place, so a missing tab permission must not fail the run.

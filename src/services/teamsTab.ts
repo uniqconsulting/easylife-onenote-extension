@@ -11,7 +11,8 @@ const DELAY_MS = 5000;
 export async function pinWebsiteTab(
   groupId: string,
   displayName: string,
-  url: string,
+  contentUrl: string,
+  websiteUrl: string,
   token: string
 ): Promise<void> {
   let lastError = "unknown error";
@@ -27,7 +28,7 @@ export async function pinWebsiteTab(
         body: JSON.stringify({
           displayName,
           "teamsApp@odata.bind": `https://graph.microsoft.com/v1.0/appCatalogs/teamsApps/${WEBSITE_TAB_APP_ID}`,
-          configuration: { entityId: "", contentUrl: url, websiteUrl: url, removeUrl: "" },
+          configuration: { entityId: "", contentUrl, websiteUrl, removeUrl: "" },
         }),
       });
 
