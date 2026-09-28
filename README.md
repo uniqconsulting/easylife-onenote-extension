@@ -103,6 +103,10 @@ Only required for pinning a Teams tab:
 - `Channel.ReadBasic.All`
 - `TeamsTab.Create`
 
+Optional, for attempting to preconfigure the OneNote tab:
+
+- `Notes.Read.All`
+
 Then select **Grant admin consent** for the tenant.
 
 > **Why not the OneNote API?** Microsoft Graph rejects app-only tokens for the OneNote API (error `40001`, enforced since 31 March 2025). This project therefore copies OneNote sections as their underlying `.one` files through the SharePoint Drive API, which still supports app-only access. `Notes.ReadWrite.All` is not required.

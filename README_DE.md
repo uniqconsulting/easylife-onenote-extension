@@ -101,6 +101,10 @@ Nur für das Anheften einer Teams-Registerkarte zusätzlich:
 - `Channel.ReadBasic.All`
 - `TeamsTab.Create`
 
+Optional für den Versuch, die OneNote-Registerkarte vorzukonfigurieren:
+
+- `Notes.Read.All`
+
 Danach unbedingt **Grant admin consent** für den Tenant ausführen.
 
 > **Warum nicht die OneNote-API?** Microsoft Graph lehnt App-only-Token für die OneNote-API ab (Fehler `40001`, seit 31.03.2025 erzwungen). Dieses Projekt kopiert OneNote-Sections deshalb als zugrunde liegende `.one`-Dateien über die SharePoint-Drive-API, die App-only weiterhin unterstützt. `Notes.ReadWrite.All` wird nicht benötigt.
