@@ -114,6 +114,7 @@ export async function provisionOneNoteTemplate(
   );
   const tabTypeValue = readList(request, ["tabType", "teamsTabType"], ["DEFAULT_TAB_TYPE"])[0] ?? "onenote";
   const tabType: TabType = isTabType(tabTypeValue) ? tabTypeValue : "onenote";
+  const tabNotebookId = readList(request, ["tabNotebookId", "notebookId"], ["DEFAULT_TAB_NOTEBOOK_ID"])[0];
 
   const sources: TemplateSource[] = [
     ...templateSiteUrls.map((siteUrl) => ({ kind: "site" as const, siteUrl, notebookNames })),
@@ -141,6 +142,7 @@ export async function provisionOneNoteTemplate(
       targetNotebookNames,
       tabValues,
       tabType,
+      tabNotebookId,
     })
   );
 
@@ -168,7 +170,18 @@ export async function provisionOneNoteTemplate(
             oneNote = { notebookId: notebook.id, notebookName: notebook.displayName, webUrl: notebook.webUrl };
           } catch (err) {
             oneNoteApiError = (err as Error).message;
-            context.warn("OneNote API unavailable, pinning an unconfigured tab", oneNoteApiError);
+            context.warn("OneNote API unavailable, falling back", oneNoteApiError);
+          }
+
+          if (!oneNote && tabNotebookId) {
+            // OneNote ids of SharePoint notebooks are the sourcedoc id with a "1-" prefix.
+            const notebookId =
+              tabNotebookId.toLowerCase() === "auto" ? `1-${result.notebookItemId}` : tabNotebookId;
+            oneNote = {
+              notebookId,
+              notebookName: targetNotebookNames[0],
+              webUrl: result.notebookUrl,
+            };
           }
         }
 

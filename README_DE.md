@@ -267,6 +267,16 @@ Teams bettet nur Registerkarten ein, für die es eine eigene App gibt. Eine Webs
 
 Microsoft Graph erlaubt für OneNote-Registerkarten keine Konfiguration. Sie wird deshalb ohne Vorauswahl angeheftet, und der erste Anwender wählt das geklonte Notizbuch einmal aus. Danach ist die Ansicht vollständig eingebettet, inklusive Abschnittsleiste.
 
+Die Function versucht vorher, das Notizbuch über die OneNote-API aufzulösen. Mit App-only-Token antwortet diese seit dem 31.03.2025 mit `40001`; der Fehler steht dann in der Antwort unter `oneNoteApiError`.
+
+Mit `tabNotebookId=auto` wird die Notizbuch-ID stattdessen aus der SharePoint-Sourcedoc-ID abgeleitet und die Registerkarte direkt konfiguriert, sodass die Auswahl entfällt:
+
+```text
+...&createTeamsTab=true&tabType=onenote&tabNotebookId=auto
+```
+
+Das ist ein undokumentiertes Format. Erscheint die Registerkarte fehlerhaft, genügt es, den Parameter wieder wegzulassen.
+
 Die Registerkarte öffnet die SharePoint-Ansicht des Notizbuchs, in der die Abschnittsleiste sichtbar ist. Schlägt das Anheften fehl, zum Beispiel wegen fehlender Berechtigung, bleibt das kopierte Notizbuch trotzdem bestehen und die Antwort enthält `tabError`.
 
 In diesem Modus werden `templateSectionName` und `targetSectionName` nicht verwendet, weil das Notizbuch samt aller Abschnitte übernommen wird.

@@ -269,6 +269,16 @@ Teams only embeds tabs backed by a dedicated app. A website tab pointing at a Sh
 
 Microsoft Graph does not accept a configuration for OneNote tabs. The tab is therefore pinned unconfigured, and the first user picks the cloned notebook once. After that the view is fully embedded, including the section list.
 
+Before that, the function tries to resolve the notebook through the OneNote API. With an app-only token that API has answered with `40001` since 31 March 2025; the error then appears in the response under `oneNoteApiError`.
+
+With `tabNotebookId=auto` the notebook id is derived from the SharePoint sourcedoc id instead, which configures the tab directly and removes the manual selection:
+
+```text
+...&createTeamsTab=true&tabType=onenote&tabNotebookId=auto
+```
+
+This format is undocumented. If the tab renders incorrectly, simply drop the parameter again.
+
 If pinning fails, for example because the permission is missing, the copied notebook still remains and the response contains `tabError`.
 
 In this mode `templateSectionName` and `targetSectionName` are ignored, because the notebook is copied with all of its sections.
