@@ -5,7 +5,7 @@ import {
   copyTemplateSectionsToGroup,
   TemplateSource,
 } from "../services/notebookSectionCopier";
-import { pinWebsiteTab } from "../services/teamsTab";
+import { isTabType, pinTab, TabType } from "../services/teamsTab";
 
 /** Extracts the newly created group's id from the EasyLife 365 webhook payload. */
 function extractGroupId(body: unknown): string | undefined {
@@ -111,6 +111,8 @@ export async function provisionOneNoteTemplate(
     ],
     ["DEFAULT_CREATE_TEAMS_TAB", "DEFAULT_TAB_NAME", "DEFAULT_TAB_NAMES"]
   );
+  const tabTypeValue = readList(request, ["tabType", "teamsTabType"], ["DEFAULT_TAB_TYPE"])[0] ?? "onenote";
+  const tabType: TabType = isTabType(tabTypeValue) ? tabTypeValue : "onenote";
 
   const sources: TemplateSource[] = [
     ...templateSiteUrls.map((siteUrl) => ({ kind: "site" as const, siteUrl, notebookNames })),
@@ -137,6 +139,7 @@ export async function provisionOneNoteTemplate(
       targetSectionNames,
       targetNotebookNames,
       tabValues,
+      tabType,
     })
   );
 
@@ -156,7 +159,15 @@ export async function provisionOneNoteTemplate(
       const tabName = resolveTabName(tabValues, targetNotebookNames[0]);
       if (tabName) {
         try {
-          await pinWebsiteTab(targetGroupId, tabName, result.notebookEmbedUrl, result.notebookUrl, token);
+          await pinTab({
+            groupId: targetGroupId,
+            displayName: tabName,
+            tabType,
+            contentUrl: tabType === "library" ? result.notebookFolderUrl : result.notebookEmbedUrl,
+            websiteUrl: result.notebookUrl,
+            entityId: result.notebookItemId,
+            token,
+          });
           tabPinned = tabName;
         } catch (err) {
           // The notebook is already in place, so a missing tab permission must not fail the run.

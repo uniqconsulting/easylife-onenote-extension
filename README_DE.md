@@ -247,6 +247,22 @@ Mit `createTeamsTab` wird das kopierte Notizbuch zusätzlich als Registerkarte i
 
 `createTab`, `pinTab`, `addTab` und `tabName` sind gleichwertige Schreibweisen. `false`, `0`, `no` oder `nein` schalten das Anheften explizit ab.
 
+#### Tab-Typ wählen
+
+Teams bettet nur Registerkarten ein, für die es eine eigene App gibt. Eine Website-Registerkarte mit einer SharePoint-URL wird nie eingebettet, weil SharePoint das Rendern im Frame verbietet. `tabType` steuert deshalb, welche App verwendet wird:
+
+| `tabType` | Verhalten |
+|---|---|
+| `onenote` (Standard) | eingebettete OneNote-Registerkarte; einmalig muss ein Anwender über **Registerkarte einrichten** das Notizbuch auswählen |
+| `library` | eingebettete SharePoint-Dateiansicht auf den Notizbuchordner |
+| `website` | öffnet im Browser statt eingebettet |
+
+```text
+...&targetNotebookName=Vorlage&createTeamsTab=true&tabType=onenote
+```
+
+Microsoft Graph erlaubt für OneNote-Registerkarten keine Konfiguration. Sie wird deshalb ohne Vorauswahl angeheftet, und der erste Anwender wählt das geklonte Notizbuch einmal aus. Danach ist die Ansicht vollständig eingebettet, inklusive Abschnittsleiste.
+
 Die Registerkarte öffnet die SharePoint-Ansicht des Notizbuchs, in der die Abschnittsleiste sichtbar ist. Schlägt das Anheften fehl, zum Beispiel wegen fehlender Berechtigung, bleibt das kopierte Notizbuch trotzdem bestehen und die Antwort enthält `tabError`.
 
 In diesem Modus werden `templateSectionName` und `targetSectionName` nicht verwendet, weil das Notizbuch samt aller Abschnitte übernommen wird.

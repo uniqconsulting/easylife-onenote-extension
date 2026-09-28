@@ -486,6 +486,8 @@ export interface CopyNotebookResult {
   targetNotebook: string;
   notebookUrl: string;
   notebookEmbedUrl: string;
+  notebookFolderUrl: string;
+  notebookItemId: string;
 }
 
 async function findFirstTemplateNotebook(sources: TemplateSource[], token: string): Promise<NotebookLocation> {
@@ -580,6 +582,8 @@ export async function copyTemplateNotebookToGroup(options: CopyNotebookOptions):
     targetNotebook: `${groupNotebook.driveName}/${name}`,
     notebookUrl,
     notebookEmbedUrl,
+    notebookFolderUrl: item.webUrl ?? site.webUrl,
+    notebookItemId: uniqueId ?? "",
   };
 }
 

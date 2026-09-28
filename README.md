@@ -249,7 +249,23 @@ Add `createTeamsTab` to pin the copied notebook as a tab in the primary channel.
 
 `createTab`, `pinTab`, `addTab`, and `tabName` are equivalent spellings. `false`, `0`, or `no` disable pinning explicitly.
 
-The tab opens the SharePoint view of the notebook, which does show the section list. If pinning fails, for example because the permission is missing, the copied notebook still remains and the response contains `tabError`.
+#### Choose the Tab Type
+
+Teams only embeds tabs backed by a dedicated app. A website tab pointing at a SharePoint URL is never embedded, because SharePoint forbids rendering inside a frame. `tabType` therefore selects the app:
+
+| `tabType` | Behaviour |
+|---|---|
+| `onenote` (default) | embedded OneNote tab; one user selects the notebook once through **Set up tab** |
+| `library` | embedded SharePoint file view of the notebook folder |
+| `website` | opens in the browser instead of embedding |
+
+```text
+...&targetNotebookName=Template&createTeamsTab=true&tabType=onenote
+```
+
+Microsoft Graph does not accept a configuration for OneNote tabs. The tab is therefore pinned unconfigured, and the first user picks the cloned notebook once. After that the view is fully embedded, including the section list.
+
+If pinning fails, for example because the permission is missing, the copied notebook still remains and the response contains `tabError`.
 
 In this mode `templateSectionName` and `targetSectionName` are ignored, because the notebook is copied with all of its sections.
 
