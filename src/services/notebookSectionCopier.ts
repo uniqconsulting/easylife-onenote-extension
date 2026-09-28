@@ -474,6 +474,112 @@ async function collectTemplateSections(
   return { sections, notebooks: [...new Set(notebooks)] };
 }
 
+export interface CopyNotebookOptions {
+  token: string;
+  sources: TemplateSource[];
+  targetGroupId: string;
+  notebookName?: string;
+}
+
+export interface CopyNotebookResult {
+  templateNotebook: string;
+  targetNotebook: string;
+  notebookUrl: string;
+}
+
+async function findFirstTemplateNotebook(sources: TemplateSource[], token: string): Promise<NotebookLocation> {
+  const failures: string[] = [];
+
+  for (const source of sources) {
+    try {
+      const siteId = await resolveSiteId(source, token);
+      const notebooks = await findNotebooks(siteId, source.notebookNames, token);
+      if (notebooks.length) {
+        return notebooks[0];
+      }
+    } catch (err) {
+      failures.push((err as Error).message);
+    }
+  }
+
+  throw new Error(`No template notebook found. ${failures.join(" | ")}`);
+}
+
+/** Copies the whole template notebook so the group gets a real notebook with its own sections. */
+export async function copyTemplateNotebookToGroup(options: CopyNotebookOptions): Promise<CopyNotebookResult> {
+  const { token, sources, targetGroupId, notebookName } = options;
+
+  const source = await findFirstTemplateNotebook(sources, token);
+  const targetSiteId = await waitForProvisioned(`Site of group ${targetGroupId}`, () =>
+    resolveSiteIdFromGroup(targetGroupId, token)
+  );
+  // Reuse the library that already holds the group notebook, so OneNote and Teams find the copy.
+  const groupNotebook = await waitForProvisioned(
+    `Notebook of group ${targetGroupId}`,
+    async () => (await findNotebooks(targetSiteId, [], token))[0]
+  );
+
+  const name = notebookName ?? source.folderName;
+  const root = await getJson<{ id: string }>(
+    `/drives/${groupNotebook.driveId}/root?$select=id`,
+    token,
+    `Resolving root of ${groupNotebook.driveName}`
+  );
+
+  const findCopy = async (): Promise<DriveItem | undefined> =>
+    (await listChildren(groupNotebook.driveId, "root/children", token)).find(
+      (item) => item.name.toLowerCase() === name.toLowerCase()
+    );
+
+  const existing = await findCopy();
+  if (existing) {
+    await graphFetch(`/drives/${groupNotebook.driveId}/items/${existing.id}`, token, { method: "DELETE" });
+  }
+
+  const response = await graphFetch(`/drives/${source.driveId}/items/${source.folderId}/copy`, token, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ parentReference: { driveId: groupNotebook.driveId, id: root.id }, name }),
+  });
+
+  if (!response.ok && response.status !== 202) {
+    throw new Error(`Copying notebook "${name}" failed: ${response.status} ${await response.text()}`);
+  }
+
+  const monitorUrl = response.headers.get("Location");
+  if (monitorUrl) {
+    await waitForCopyToFinish(monitorUrl);
+  }
+
+  const copied = await findCopy();
+  if (!copied) {
+    throw new Error(`Notebook "${name}" was not created in ${groupNotebook.driveName}.`);
+  }
+
+  const item = await getJson<{ webUrl?: string; sharepointIds?: { listItemUniqueId?: string } }>(
+    `/drives/${groupNotebook.driveId}/items/${copied.id}?$select=webUrl,sharepointIds`,
+    token,
+    `Reading copied notebook ${name}`
+  );
+  const site = await getJson<{ webUrl: string }>(
+    `/sites/${targetSiteId}?$select=webUrl`,
+    token,
+    `Resolving url of site ${targetSiteId}`
+  );
+
+  // Doc.aspx opens the notebook in OneNote instead of showing the folder contents.
+  const uniqueId = item.sharepointIds?.listItemUniqueId;
+  const notebookUrl = uniqueId
+    ? `${site.webUrl}/_layouts/15/Doc.aspx?sourcedoc={${uniqueId}}&action=edit`
+    : item.webUrl ?? site.webUrl;
+
+  return {
+    templateNotebook: `${source.driveName}/${source.folderName}`,
+    targetNotebook: `${groupNotebook.driveName}/${name}`,
+    notebookUrl,
+  };
+}
+
 /** Copies template sections (.one files) into the notebook of the newly provisioned group. */
 export async function copyTemplateSectionsToGroup(options: CopyTemplateOptions): Promise<CopyTemplateResult> {
   const { token, sources, sections, targetGroupId } = options;

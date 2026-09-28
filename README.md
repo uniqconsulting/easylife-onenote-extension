@@ -98,6 +98,11 @@ In **API permissions → Add a permission → Microsoft Graph → Application pe
 - `Sites.ReadWrite.All`
 - `Group.Read.All`
 
+Only required for pinning a Teams tab:
+
+- `Channel.ReadBasic.All`
+- `TeamsTab.Create`
+
 Then select **Grant admin consent** for the tenant.
 
 > **Why not the OneNote API?** Microsoft Graph rejects app-only tokens for the OneNote API (error `40001`, enforced since 31 March 2025). This project therefore copies OneNote sections as their underlying `.one` files through the SharePoint Drive API, which still supports app-only access. `Notes.ReadWrite.All` is not required.
@@ -219,6 +224,26 @@ Every parameter accepts singular and plural spellings as well as repeated query 
 ```
 
 Without any parameter, every section of every template notebook found is copied 1:1 under its original name.
+
+### Clone the Whole Notebook Instead of Copying Sections
+
+Teams pins a channel's OneNote tab to the channel section and hides the section list. To keep the template's sections under their own names, copy the **whole notebook** into the group site and pin it as a separate tab.
+
+Setting `targetNotebookName` switches to this mode. The notebook created by EasyLife stays untouched:
+
+```text
+...&templateNotebookName=Notes&targetNotebookName=Template
+```
+
+Add `tabName` to pin the copied notebook as a tab in the primary channel:
+
+```text
+...&templateNotebookName=Notes&targetNotebookName=Template&tabName=Template
+```
+
+The tab opens the SharePoint view of the notebook, which does show the section list. If pinning fails, for example because the permission is missing, the copied notebook still remains and the response contains `tabError`.
+
+In this mode `templateSectionName` and `targetSectionName` are ignored, because the notebook is copied with all of its sections.
 
 ### Control the Target Section
 

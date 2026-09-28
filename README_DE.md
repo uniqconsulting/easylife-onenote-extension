@@ -96,6 +96,11 @@ In **API permissions** → **Add a permission** → **Microsoft Graph** → **Ap
 - `Sites.ReadWrite.All`
 - `Group.Read.All`
 
+Nur für das Anheften einer Teams-Registerkarte zusätzlich:
+
+- `Channel.ReadBasic.All`
+- `TeamsTab.Create`
+
 Danach unbedingt **Grant admin consent** für den Tenant ausführen.
 
 > **Warum nicht die OneNote-API?** Microsoft Graph lehnt App-only-Token für die OneNote-API ab (Fehler `40001`, seit 31.03.2025 erzwungen). Dieses Projekt kopiert OneNote-Sections deshalb als zugrunde liegende `.one`-Dateien über die SharePoint-Drive-API, die App-only weiterhin unterstützt. `Notes.ReadWrite.All` wird nicht benötigt.
@@ -217,6 +222,26 @@ Jeder Parameter akzeptiert Einzel- und Mehrzahlschreibweise sowie mehrfach wiede
 ```
 
 Wird gar kein Parameter gesetzt, werden alle Sections aller gefundenen Vorlage-Notizbücher 1:1 mit ihren Originalnamen kopiert.
+
+### Ganzes Notizbuch klonen statt Abschnitte kopieren
+
+Teams bindet die OneNote-Registerkarte eines Kanals fest an den Kanalabschnitt und blendet die Abschnittsleiste aus. Wer die Abschnitte der Vorlage mit ihren Namen sehen will, kopiert stattdessen das **ganze Notizbuch** in die Gruppen-Site und hängt es als eigene Registerkarte an.
+
+Sobald `targetNotebookName` gesetzt ist, wird dieser Modus verwendet. Das von EasyLife erzeugte Notizbuch bleibt unverändert:
+
+```text
+...&templateNotebookName=Notes&targetNotebookName=Vorlage
+```
+
+Mit `tabName` wird das kopierte Notizbuch zusätzlich als Registerkarte im Standardkanal angeheftet:
+
+```text
+...&templateNotebookName=Notes&targetNotebookName=Vorlage&tabName=Vorlage
+```
+
+Die Registerkarte öffnet die SharePoint-Ansicht des Notizbuchs, in der die Abschnittsleiste sichtbar ist. Schlägt das Anheften fehl, zum Beispiel wegen fehlender Berechtigung, bleibt das kopierte Notizbuch trotzdem bestehen und die Antwort enthält `tabError`.
+
+In diesem Modus werden `templateSectionName` und `targetSectionName` nicht verwendet, weil das Notizbuch samt aller Abschnitte übernommen wird.
 
 ### Zielabschnitt steuern
 

@@ -1,6 +1,11 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { getGraphAccessToken } from "../services/graphClient";
-import { copyTemplateSectionsToGroup, TemplateSource } from "../services/notebookSectionCopier";
+import {
+  copyTemplateNotebookToGroup,
+  copyTemplateSectionsToGroup,
+  TemplateSource,
+} from "../services/notebookSectionCopier";
+import { pinWebsiteTab } from "../services/teamsTab";
 
 /** Extracts the newly created group's id from the EasyLife 365 webhook payload. */
 function extractGroupId(body: unknown): string | undefined {
@@ -74,6 +79,18 @@ export async function provisionOneNoteTemplate(
     ["DEFAULT_TARGET_SECTION_NAMES", "DEFAULT_TARGET_SECTION_NAME"]
   );
 
+  // Setting a target notebook switches from copying sections to cloning the whole notebook.
+  const targetNotebookNames = readList(
+    request,
+    ["targetNotebookName", "targetNotebookNames", "targetNotebook", "targetNotebooks"],
+    ["DEFAULT_TARGET_NOTEBOOK_NAME", "DEFAULT_TARGET_NOTEBOOK_NAMES"]
+  );
+  const tabNames = readList(
+    request,
+    ["tabName", "tabNames", "teamsTabName", "teamsTabNames"],
+    ["DEFAULT_TAB_NAME", "DEFAULT_TAB_NAMES"]
+  );
+
   const sources: TemplateSource[] = [
     ...templateSiteUrls.map((siteUrl) => ({ kind: "site" as const, siteUrl, notebookNames })),
     ...templateGroupIds.map((groupId) => ({ kind: "group" as const, groupId, notebookNames })),
@@ -91,11 +108,45 @@ export async function provisionOneNoteTemplate(
 
   context.log(
     `Copying into group ${targetGroupId} from ${sources.length} template source(s)`,
-    JSON.stringify({ templateSiteUrls, templateGroupIds, notebookNames, templateSectionNames, targetSectionNames })
+    JSON.stringify({
+      templateSiteUrls,
+      templateGroupIds,
+      notebookNames,
+      templateSectionNames,
+      targetSectionNames,
+      targetNotebookNames,
+      tabNames,
+    })
   );
 
   try {
     const token = await getGraphAccessToken();
+
+    if (targetNotebookNames.length) {
+      const result = await copyTemplateNotebookToGroup({
+        token,
+        sources,
+        targetGroupId,
+        notebookName: targetNotebookNames[0],
+      });
+
+      let tabPinned: string | undefined;
+      let tabError: string | undefined;
+      if (tabNames.length) {
+        try {
+          await pinWebsiteTab(targetGroupId, tabNames[0], result.notebookUrl, token);
+          tabPinned = tabNames[0];
+        } catch (err) {
+          // The notebook is already in place, so a missing tab permission must not fail the run.
+          tabError = (err as Error).message;
+          context.warn("Could not pin the Teams tab", tabError);
+        }
+      }
+
+      context.log(`Cloned notebook into group ${targetGroupId}.`, JSON.stringify({ ...result, tabPinned, tabError }));
+      return { status: 200, jsonBody: { status: "ok", ...result, tabPinned, tabError } };
+    }
+
     const result = await copyTemplateSectionsToGroup({
       token,
       sources,
