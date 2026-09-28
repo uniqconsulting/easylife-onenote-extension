@@ -38,6 +38,18 @@ function buildSectionMappings(from: string[], to: string[]): { from: string; to:
   return from.map((name, index) => ({ from: name, to: to[index] ?? name }));
 }
 
+const TRUE_VALUES = ["true", "1", "yes", "ja", "on"];
+const FALSE_VALUES = ["false", "0", "no", "nein", "off"];
+
+/** The switch doubles as the tab name, so "createTeamsTab=true" reuses the notebook name. */
+function resolveTabName(values: string[], fallback: string): string | undefined {
+  const value = values[0];
+  if (!value || FALSE_VALUES.includes(value.toLowerCase())) {
+    return undefined;
+  }
+  return TRUE_VALUES.includes(value.toLowerCase()) ? fallback : value;
+}
+
 export async function provisionOneNoteTemplate(
   request: HttpRequest,
   context: InvocationContext
@@ -85,10 +97,19 @@ export async function provisionOneNoteTemplate(
     ["targetNotebookName", "targetNotebookNames", "targetNotebook", "targetNotebooks"],
     ["DEFAULT_TARGET_NOTEBOOK_NAME", "DEFAULT_TARGET_NOTEBOOK_NAMES"]
   );
-  const tabNames = readList(
+  const tabValues = readList(
     request,
-    ["tabName", "tabNames", "teamsTabName", "teamsTabNames"],
-    ["DEFAULT_TAB_NAME", "DEFAULT_TAB_NAMES"]
+    [
+      "createTeamsTab",
+      "createTab",
+      "pinTab",
+      "addTab",
+      "tabName",
+      "tabNames",
+      "teamsTabName",
+      "teamsTabNames",
+    ],
+    ["DEFAULT_CREATE_TEAMS_TAB", "DEFAULT_TAB_NAME", "DEFAULT_TAB_NAMES"]
   );
 
   const sources: TemplateSource[] = [
@@ -115,7 +136,7 @@ export async function provisionOneNoteTemplate(
       templateSectionNames,
       targetSectionNames,
       targetNotebookNames,
-      tabNames,
+      tabValues,
     })
   );
 
@@ -132,10 +153,11 @@ export async function provisionOneNoteTemplate(
 
       let tabPinned: string | undefined;
       let tabError: string | undefined;
-      if (tabNames.length) {
+      const tabName = resolveTabName(tabValues, targetNotebookNames[0]);
+      if (tabName) {
         try {
-          await pinWebsiteTab(targetGroupId, tabNames[0], result.notebookUrl, token);
-          tabPinned = tabNames[0];
+          await pinWebsiteTab(targetGroupId, tabName, result.notebookUrl, token);
+          tabPinned = tabName;
         } catch (err) {
           // The notebook is already in place, so a missing tab permission must not fail the run.
           tabError = (err as Error).message;

@@ -233,11 +233,19 @@ Sobald `targetNotebookName` gesetzt ist, wird dieser Modus verwendet. Das von Ea
 ...&templateNotebookName=Notes&targetNotebookName=Vorlage
 ```
 
-Mit `tabName` wird das kopierte Notizbuch zusätzlich als Registerkarte im Standardkanal angeheftet:
+Mit `createTeamsTab` wird das kopierte Notizbuch zusätzlich als Registerkarte im Standardkanal angeheftet. Ohne diesen Parameter wird **keine** Registerkarte angelegt:
 
 ```text
-...&templateNotebookName=Notes&targetNotebookName=Vorlage&tabName=Vorlage
+...&templateNotebookName=Notes&targetNotebookName=Vorlage&createTeamsTab=true
 ```
+
+`createTeamsTab=true` übernimmt den Namen aus `targetNotebookName`. Ein abweichender Registerkartenname kann direkt angegeben werden:
+
+```text
+...&targetNotebookName=Vorlage&createTeamsTab=Besprechungen
+```
+
+`createTab`, `pinTab`, `addTab` und `tabName` sind gleichwertige Schreibweisen. `false`, `0`, `no` oder `nein` schalten das Anheften explizit ab.
 
 Die Registerkarte öffnet die SharePoint-Ansicht des Notizbuchs, in der die Abschnittsleiste sichtbar ist. Schlägt das Anheften fehl, zum Beispiel wegen fehlender Berechtigung, bleibt das kopierte Notizbuch trotzdem bestehen und die Antwort enthält `tabError`.
 

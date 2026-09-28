@@ -235,11 +235,19 @@ Setting `targetNotebookName` switches to this mode. The notebook created by Easy
 ...&templateNotebookName=Notes&targetNotebookName=Template
 ```
 
-Add `tabName` to pin the copied notebook as a tab in the primary channel:
+Add `createTeamsTab` to pin the copied notebook as a tab in the primary channel. Without this parameter **no** tab is created:
 
 ```text
-...&templateNotebookName=Notes&targetNotebookName=Template&tabName=Template
+...&templateNotebookName=Notes&targetNotebookName=Template&createTeamsTab=true
 ```
+
+`createTeamsTab=true` reuses the name from `targetNotebookName`. A different tab name can be passed directly:
+
+```text
+...&targetNotebookName=Template&createTeamsTab=Meetings
+```
+
+`createTab`, `pinTab`, `addTab`, and `tabName` are equivalent spellings. `false`, `0`, or `no` disable pinning explicitly.
 
 The tab opens the SharePoint view of the notebook, which does show the section list. If pinning fails, for example because the permission is missing, the copied notebook still remains and the response contains `tabError`.
 
