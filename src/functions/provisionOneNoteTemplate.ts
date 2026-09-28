@@ -5,6 +5,7 @@ import {
   copyTemplateSectionsToGroup,
   TemplateSource,
 } from "../services/notebookSectionCopier";
+import { findGroupNotebook } from "../services/oneNoteApi";
 import { isTabType, pinTab, TabType } from "../services/teamsTab";
 
 /** Extracts the newly created group's id from the EasyLife 365 webhook payload. */
@@ -156,8 +157,21 @@ export async function provisionOneNoteTemplate(
 
       let tabPinned: string | undefined;
       let tabError: string | undefined;
+      let oneNoteApiError: string | undefined;
       const tabName = resolveTabName(tabValues, targetNotebookNames[0]);
       if (tabName) {
+        // Reveals whether app-only access to the OneNote API is possible in this tenant.
+        let oneNote: { notebookId: string; notebookName: string; webUrl: string } | undefined;
+        if (tabType === "onenote") {
+          try {
+            const notebook = await findGroupNotebook(targetGroupId, targetNotebookNames[0], token);
+            oneNote = { notebookId: notebook.id, notebookName: notebook.displayName, webUrl: notebook.webUrl };
+          } catch (err) {
+            oneNoteApiError = (err as Error).message;
+            context.warn("OneNote API unavailable, pinning an unconfigured tab", oneNoteApiError);
+          }
+        }
+
         try {
           await pinTab({
             groupId: targetGroupId,
@@ -166,6 +180,7 @@ export async function provisionOneNoteTemplate(
             contentUrl: tabType === "library" ? result.notebookFolderUrl : result.notebookEmbedUrl,
             websiteUrl: result.notebookUrl,
             entityId: result.notebookItemId,
+            oneNote,
             token,
           });
           tabPinned = tabName;
@@ -176,8 +191,11 @@ export async function provisionOneNoteTemplate(
         }
       }
 
-      context.log(`Cloned notebook into group ${targetGroupId}.`, JSON.stringify({ ...result, tabPinned, tabError }));
-      return { status: 200, jsonBody: { status: "ok", ...result, tabPinned, tabError } };
+      context.log(
+        `Cloned notebook into group ${targetGroupId}.`,
+        JSON.stringify({ ...result, tabPinned, tabError, oneNoteApiError })
+      );
+      return { status: 200, jsonBody: { status: "ok", ...result, tabPinned, tabError, oneNoteApiError } };
     }
 
     const result = await copyTemplateSectionsToGroup({

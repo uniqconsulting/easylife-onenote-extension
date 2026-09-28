@@ -22,6 +22,8 @@ export interface PinTabOptions {
   contentUrl: string;
   websiteUrl: string;
   entityId: string;
+  /** Only available when the OneNote API accepted the token. */
+  oneNote?: { notebookId: string; notebookName: string; webUrl: string };
   token: string;
 }
 
@@ -30,19 +32,32 @@ const ATTEMPTS = 6;
 const DELAY_MS = 5000;
 
 function buildBody(options: PinTabOptions): Record<string, unknown> {
-  const { displayName, tabType, contentUrl, websiteUrl, entityId } = options;
+  const { displayName, tabType, contentUrl, websiteUrl, entityId, groupId, oneNote } = options;
   const body: Record<string, unknown> = {
     displayName,
     "teamsApp@odata.bind": `https://graph.microsoft.com/v1.0/appCatalogs/teamsApps/${TAB_APPS[tabType]}`,
   };
 
-  // Graph does not accept a configuration for OneNote tabs, so it stays unconfigured and the
-  // first user picks the notebook once.
   if (tabType === "website") {
     body.configuration = { entityId: "", contentUrl, websiteUrl, removeUrl: null };
   } else if (tabType === "library") {
     body.configuration = { entityId, contentUrl, websiteUrl: null, removeUrl: null };
+  } else if (oneNote) {
+    const selfUrl = `https://www.onenote.com/api/v1.0/myOrganization/groups/${groupId}/notes/notebooks/${oneNote.notebookId}`;
+    const tabContentUrl =
+      `https://www.onenote.com/teams/TabContent?entityid=%7BentityId%7D&subentityid=%7BsubEntityId%7D` +
+      `&auth_upn=%7Bupn%7D&notebookSource=Pick&notebookSelfUrl=${encodeURIComponent(selfUrl)}` +
+      `&oneNoteWebUrl=${encodeURIComponent(oneNote.webUrl)}&notebookName=${encodeURIComponent(oneNote.notebookName)}` +
+      `&ui={locale}&tenantId={tid}`;
+
+    body.configuration = {
+      entityId: oneNote.notebookId,
+      contentUrl: tabContentUrl,
+      removeUrl: null,
+      websiteUrl: `https://www.onenote.com/teams/TabRedirect?redirectUrl=${encodeURIComponent(oneNote.webUrl)}`,
+    };
   }
+  // Without OneNote ids the tab stays unconfigured and the first user picks the notebook once.
 
   return body;
 }
