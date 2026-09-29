@@ -71,6 +71,10 @@ const DEFAULT_SECTION_NAMES = [
 const PROVISIONING_ATTEMPTS = 6;
 const PROVISIONING_DELAY_MS = 5000;
 
+// The channel folder is created rather than waited for, so this stays short.
+const FOLDER_ATTEMPTS = 3;
+const FOLDER_DELAY_MS = 3000;
+
 function normalizeName(value: string): string {
   return value.trim().replace(/\.one$/i, "").toLowerCase();
 }
@@ -519,26 +523,36 @@ async function resolveOrCreateFolder(
 ): Promise<{ id: string }> {
   const encoded = folderPath.split("/").map(encodeURIComponent).join("/");
 
-  try {
-    return await waitForProvisioned(`Folder ${folderPath} of ${drive.name}`, () =>
-      getJson<{ id: string }>(
-        `/drives/${drive.id}/root:/${encoded}?$select=id`,
-        token,
-        `Resolving ${folderPath} of ${drive.name}`
-      )
-    );
-  } catch {
-    const response = await graphFetch(`/drives/${drive.id}/root/children`, token, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: folderPath, folder: {}, "@microsoft.graph.conflictBehavior": "return" }),
-    });
+  const lookup = async (): Promise<{ id: string } | undefined> => {
+    const response = await graphFetch(`/drives/${drive.id}/root:/${encoded}?$select=id`, token);
+    return response.ok ? ((await response.json()) as { id: string }) : undefined;
+  };
 
-    if (!response.ok) {
-      throw new Error(`Creating folder "${folderPath}" failed: ${response.status} ${await response.text()}`);
+  for (let attempt = 0; attempt < FOLDER_ATTEMPTS; attempt++) {
+    const folder = await lookup();
+    if (folder) {
+      return folder;
     }
+    await sleep(FOLDER_DELAY_MS);
+  }
+
+  const response = await graphFetch(`/drives/${drive.id}/root/children`, token, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: folderPath, folder: {}, "@microsoft.graph.conflictBehavior": "fail" }),
+  });
+
+  if (response.ok) {
     return (await response.json()) as { id: string };
   }
+
+  // Teams may have created the folder in the meantime.
+  const folder = await lookup();
+  if (folder) {
+    return folder;
+  }
+
+  throw new Error(`Creating folder "${folderPath}" failed: ${response.status} ${await response.text()}`);
 }
 
 /** Copies the whole template notebook so the group gets a real notebook with its own sections. */
