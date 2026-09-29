@@ -137,6 +137,7 @@ export async function provisionOneNoteTemplate(
     ["DEFAULT_REMOVE_TAB_NAMES"]
   );
   const targetLibrary = readList(request, ["targetLibrary", "library"], ["DEFAULT_TARGET_LIBRARY"])[0];
+  const targetFolder = readList(request, ["targetFolder", "folder"], ["DEFAULT_TARGET_FOLDER"])[0];
 
   const sources: TemplateSource[] = [
     ...templateSiteUrls.map((siteUrl) => ({ kind: "site" as const, siteUrl, notebookNames })),
@@ -167,6 +168,7 @@ export async function provisionOneNoteTemplate(
       tabNotebookId,
       removeTabNames,
       targetLibrary,
+      targetFolder,
     })
   );
 
@@ -182,6 +184,7 @@ export async function provisionOneNoteTemplate(
         targetGroupId,
         notebookName,
         libraryName: targetLibrary,
+        folderPath: targetFolder,
       });
 
       let tabPinned: string | undefined;

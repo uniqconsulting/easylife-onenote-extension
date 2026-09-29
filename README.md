@@ -317,6 +317,14 @@ By default the cloned notebook goes into the same library as the group notebook,
 
 `Documents` is the library shown under **Files** in Teams, which can be easier to find for backup tools and for users.
 
+However, the Teams **Files** tab does not show the root of the library but the channel folder, which is `General` for the default channel regardless of display language. `targetFolder` places the notebook exactly there:
+
+```text
+...&targetNotebookName=Template&targetLibrary=Documents&targetFolder=General
+```
+
+Without `targetFolder` the notebook sits in the library root and is not visible under **Files** in Teams.
+
 If pinning fails, for example because the permission is missing, the copied notebook still remains and the response contains `tabError`.
 
 In this mode `templateSectionName` and `targetSectionName` are ignored, because the notebook is copied with all of its sections.

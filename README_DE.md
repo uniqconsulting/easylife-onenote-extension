@@ -314,6 +314,14 @@ Standardmässig wird das geklonte Notizbuch in dieselbe Bibliothek gelegt wie da
 
 `Documents` ist die Bibliothek, die in Teams unter **Dateien** sichtbar ist. Das kann für Backup-Werkzeuge und für Anwender übersichtlicher sein.
 
+Teams zeigt unter **Dateien** allerdings nicht die Wurzel der Bibliothek, sondern den Ordner des Kanals. Für den Standardkanal ist das `General`, unabhängig von der Anzeigesprache. Mit `targetFolder` landet das Notizbuch genau dort:
+
+```text
+...&targetNotebookName=Vorlage&targetLibrary=Documents&targetFolder=General
+```
+
+Ohne `targetFolder` liegt das Notizbuch in der Wurzel der Bibliothek und ist in Teams unter **Dateien** nicht sichtbar.
+
 Die Registerkarte öffnet die SharePoint-Ansicht des Notizbuchs, in der die Abschnittsleiste sichtbar ist. Schlägt das Anheften fehl, zum Beispiel wegen fehlender Berechtigung, bleibt das kopierte Notizbuch trotzdem bestehen und die Antwort enthält `tabError`.
 
 In diesem Modus werden `templateSectionName` und `targetSectionName` nicht verwendet, weil das Notizbuch samt aller Abschnitte übernommen wird.

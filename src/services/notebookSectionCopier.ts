@@ -481,6 +481,8 @@ export interface CopyNotebookOptions {
   notebookName?: string;
   /** Defaults to the library that already holds the group notebook, usually "Site Assets". */
   libraryName?: string;
+  /** Subfolder inside that library, for example the channel folder "General". */
+  folderPath?: string;
 }
 
 export interface CopyNotebookResult {
@@ -512,7 +514,7 @@ async function findFirstTemplateNotebook(sources: TemplateSource[], token: strin
 
 /** Copies the whole template notebook so the group gets a real notebook with its own sections. */
 export async function copyTemplateNotebookToGroup(options: CopyNotebookOptions): Promise<CopyNotebookResult> {
-  const { token, sources, targetGroupId, notebookName, libraryName } = options;
+  const { token, sources, targetGroupId, notebookName, libraryName, folderPath } = options;
 
   const source = await findFirstTemplateNotebook(sources, token);
   const targetSiteId = await waitForProvisioned(`Site of group ${targetGroupId}`, () =>
@@ -537,14 +539,17 @@ export async function copyTemplateNotebookToGroup(options: CopyNotebookOptions):
   }
 
   const name = notebookName ?? source.folderName;
-  const root = await getJson<{ id: string }>(
-    `/drives/${targetDrive.id}/root?$select=id`,
+  const parentPath = folderPath
+    ? `root:/${folderPath.split("/").map(encodeURIComponent).join("/")}`
+    : "root";
+  const parent = await getJson<{ id: string }>(
+    `/drives/${targetDrive.id}/${parentPath}?$select=id`,
     token,
-    `Resolving root of ${targetDrive.name}`
+    `Resolving ${folderPath ?? "root"} of ${targetDrive.name}`
   );
 
   const findCopy = async (): Promise<DriveItem | undefined> =>
-    (await listChildren(targetDrive.id, "root/children", token)).find(
+    (await listChildren(targetDrive.id, `items/${parent.id}/children`, token)).find(
       (item) => item.name.toLowerCase() === name.toLowerCase()
     );
 
@@ -556,7 +561,7 @@ export async function copyTemplateNotebookToGroup(options: CopyNotebookOptions):
   const response = await graphFetch(`/drives/${source.driveId}/items/${source.folderId}/copy`, token, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ parentReference: { driveId: targetDrive.id, id: root.id }, name }),
+    body: JSON.stringify({ parentReference: { driveId: targetDrive.id, id: parent.id }, name }),
   });
 
   if (!response.ok && response.status !== 202) {
@@ -570,7 +575,7 @@ export async function copyTemplateNotebookToGroup(options: CopyNotebookOptions):
 
   const copied = await findCopy();
   if (!copied) {
-    throw new Error(`Notebook "${name}" was not created in ${groupNotebook.driveName}.`);
+    throw new Error(`Notebook "${name}" was not created in ${targetDrive.name}/${folderPath ?? ""}.`);
   }
 
   const item = await getJson<{ webUrl?: string; sharepointIds?: { listItemUniqueId?: string } }>(
@@ -593,7 +598,7 @@ export async function copyTemplateNotebookToGroup(options: CopyNotebookOptions):
 
   return {
     templateNotebook: `${source.driveName}/${source.folderName}`,
-    targetNotebook: `${targetDrive.name}/${name}`,
+    targetNotebook: `${targetDrive.name}/${folderPath ? `${folderPath}/` : ""}${name}`,
     notebookUrl,
     notebookEmbedUrl,
     notebookFolderUrl: item.webUrl ?? site.webUrl,
