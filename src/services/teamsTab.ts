@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { graphFetch, sleep } from "./graphClient";
 
 // Teams renders these natively. A website tab only embeds pages that allow framing, which
@@ -22,14 +23,55 @@ export interface PinTabOptions {
   contentUrl: string;
   websiteUrl: string;
   entityId: string;
-  /** Only available when the OneNote API accepted the token. */
-  oneNote?: { notebookId: string; notebookName: string; webUrl: string };
+  /** Only available when the OneNote notebook id could be determined. */
+  oneNote?: {
+    notebookId: string;
+    notebookName: string;
+    siteUrl: string;
+    /** Path style url of the notebook folder, not the Doc.aspx link. */
+    pathUrl: string;
+    fileId: string;
+  };
   token: string;
 }
 
 // Teams provisions the team itself after the group, so the channel is not available right away.
 const ATTEMPTS = 6;
 const DELAY_MS = 5000;
+
+/**
+ * Mirrors the configuration the OneNote app writes itself. Anything else makes the app rewrite
+ * the tab on first open, which is what produced the " (1)" suffix.
+ */
+function buildOneNoteConfiguration(
+  groupId: string,
+  displayName: string,
+  oneNote: NonNullable<PinTabOptions["oneNote"]>
+): Record<string, unknown> {
+  const selfUrl =
+    `https://www.onenote.com/api/v1.0/myOrganization/groups/${groupId}/notes/notebooks/${oneNote.notebookId}` +
+    `?siteUrl=${encodeURIComponent(oneNote.siteUrl)}`;
+  const subEntityId = JSON.stringify({
+    objectUrl: oneNote.pathUrl,
+    fileType: "one",
+    fileId: oneNote.fileId,
+    baseUrl: oneNote.siteUrl,
+  });
+
+  const contentUrl =
+    `https://www.microsoft365.com/launch/onenote/officeunihost/teams?auth=2&flight=officeunihost` +
+    `&notebookSource=Pick&notebookSelfUrl=${encodeURIComponent(selfUrl)}` +
+    `&oneNoteWebUrl=${encodeURIComponent(oneNote.pathUrl)}` +
+    `&notebookName=${encodeURIComponent(displayName)}` +
+    `&createdTeamType=Standard&oneNoteClientUrl=${encodeURIComponent(oneNote.pathUrl)}` +
+    `&subEntityId=${encodeURIComponent(subEntityId)}` +
+    `&notebookIsDefault=false&isMigrated=1` +
+    `&locale={locale}&tid={tid}&upn={userPrincipalName}&groupId={groupId}&theme={theme}` +
+    `&entityId={entityId}&sessionId={sessionId}&ringId={ringId}&teamSiteUrl={teamSiteUrl}` +
+    `&channelType={channelType}&appSessionId={appSessionId}&hostClientType={hostClientType}`;
+
+  return { entityId: randomUUID(), contentUrl, removeUrl: "", websiteUrl: "https://onenote.com/" };
+}
 
 function buildBody(options: PinTabOptions): Record<string, unknown> {
   const { displayName, tabType, contentUrl, websiteUrl, entityId, groupId, oneNote } = options;
@@ -43,19 +85,7 @@ function buildBody(options: PinTabOptions): Record<string, unknown> {
   } else if (tabType === "library") {
     body.configuration = { entityId, contentUrl, websiteUrl: null, removeUrl: null };
   } else if (oneNote) {
-    const selfUrl = `https://www.onenote.com/api/v1.0/myOrganization/groups/${groupId}/notes/notebooks/${oneNote.notebookId}`;
-    const tabContentUrl =
-      `https://www.onenote.com/teams/TabContent?entityid=%7BentityId%7D&subentityid=%7BsubEntityId%7D` +
-      `&auth_upn=%7Bupn%7D&notebookSource=Pick&notebookSelfUrl=${encodeURIComponent(selfUrl)}` +
-      `&oneNoteWebUrl=${encodeURIComponent(oneNote.webUrl)}&notebookName=${encodeURIComponent(oneNote.notebookName)}` +
-      `&ui={locale}&tenantId={tid}`;
-
-    body.configuration = {
-      entityId: oneNote.notebookId,
-      contentUrl: tabContentUrl,
-      removeUrl: null,
-      websiteUrl: `https://www.onenote.com/teams/TabRedirect?redirectUrl=${encodeURIComponent(oneNote.webUrl)}`,
-    };
+    body.configuration = buildOneNoteConfiguration(groupId, displayName, oneNote);
   }
   // Without OneNote ids the tab stays unconfigured and the first user picks the notebook once.
 

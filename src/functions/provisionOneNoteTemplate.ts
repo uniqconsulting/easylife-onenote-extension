@@ -206,11 +206,19 @@ export async function provisionOneNoteTemplate(
       const tabName = resolveTabName(tabValues, notebookName);
       if (tabName) {
         // Reveals whether app-only access to the OneNote API is possible in this tenant.
-        let oneNote: { notebookId: string; notebookName: string; webUrl: string } | undefined;
+        let oneNote:
+          | { notebookId: string; notebookName: string; siteUrl: string; pathUrl: string; fileId: string }
+          | undefined;
         if (tabType === "onenote") {
           try {
             const notebook = await findGroupNotebook(targetGroupId, notebookName, token);
-            oneNote = { notebookId: notebook.id, notebookName: notebook.displayName, webUrl: notebook.webUrl };
+            oneNote = {
+              notebookId: notebook.id,
+              notebookName: notebook.displayName,
+              siteUrl: result.siteUrl,
+              pathUrl: result.notebookPathUrl,
+              fileId: result.notebookItemId,
+            };
           } catch (err) {
             oneNoteApiError = (err as Error).message;
             context.warn("OneNote API unavailable, falling back", oneNoteApiError);
@@ -223,7 +231,9 @@ export async function provisionOneNoteTemplate(
             oneNote = {
               notebookId,
               notebookName,
-              webUrl: result.notebookUrl,
+              siteUrl: result.siteUrl,
+              pathUrl: result.notebookPathUrl,
+              fileId: result.notebookItemId,
             };
           }
         }

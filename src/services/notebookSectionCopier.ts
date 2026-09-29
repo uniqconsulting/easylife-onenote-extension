@@ -496,6 +496,9 @@ export interface CopyNotebookResult {
   notebookEmbedUrl: string;
   notebookFolderUrl: string;
   notebookItemId: string;
+  siteUrl: string;
+  /** Path style url the OneNote tab expects, not the Doc.aspx link. */
+  notebookPathUrl: string;
 }
 
 async function findFirstTemplateNotebook(sources: TemplateSource[], token: string): Promise<NotebookLocation> {  const failures: string[] = [];
@@ -630,6 +633,11 @@ export async function copyTemplateNotebookToGroup(options: CopyNotebookOptions):
     token,
     `Resolving url of site ${targetSiteId}`
   );
+  const parentItem = await getJson<{ webUrl?: string }>(
+    `/drives/${targetDrive.id}/items/${parent.id}?$select=webUrl`,
+    token,
+    `Resolving url of ${folderPath ?? "root"}`
+  );
 
   // Doc.aspx opens the notebook in OneNote instead of showing the folder contents.
   const uniqueId = item.sharepointIds?.listItemUniqueId;
@@ -645,6 +653,8 @@ export async function copyTemplateNotebookToGroup(options: CopyNotebookOptions):
     notebookEmbedUrl,
     notebookFolderUrl: item.webUrl ?? site.webUrl,
     notebookItemId: uniqueId ?? "",
+    siteUrl: site.webUrl,
+    notebookPathUrl: `${parentItem.webUrl ?? site.webUrl}/${encodeURIComponent(name)}`,
   };
 }
 
