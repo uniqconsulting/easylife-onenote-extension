@@ -192,6 +192,16 @@ export async function provisionOneNoteTemplate(
       let oneNoteApiError: string | undefined;
       let tabsRemoved: string[] | undefined;
       let tabNames: PinTabResult | undefined;
+
+      // Removing first avoids a second OneNote tab instance, which Teams labels " (1)".
+      if (removeTabNames.length) {
+        try {
+          tabsRemoved = await removeTabs(targetGroupId, removeTabNames, token);
+        } catch (err) {
+          context.warn("Could not remove Teams tabs", (err as Error).message);
+        }
+      }
+
       const tabName = resolveTabName(tabValues, notebookName);
       if (tabName) {
         // Reveals whether app-only access to the OneNote API is possible in this tenant.
@@ -233,14 +243,6 @@ export async function provisionOneNoteTemplate(
           // The notebook is already in place, so a missing tab permission must not fail the run.
           tabError = (err as Error).message;
           context.warn("Could not pin the Teams tab", tabError);
-        }
-      }
-
-      if (removeTabNames.length) {
-        try {
-          tabsRemoved = await removeTabs(targetGroupId, removeTabNames, token);
-        } catch (err) {
-          context.warn("Could not remove Teams tabs", (err as Error).message);
         }
       }
 
