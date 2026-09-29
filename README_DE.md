@@ -100,6 +100,7 @@ Nur für das Anheften einer Teams-Registerkarte zusätzlich:
 
 - `Channel.ReadBasic.All`
 - `TeamsTab.Create`
+- `TeamsTab.Delete.All` nur zum Entfernen bestehender Registerkarten
 
 Optional für den Versuch, die OneNote-Registerkarte vorzukonfigurieren:
 
@@ -276,6 +277,26 @@ Mit `tabNotebookId=auto` wird die Notizbuch-ID stattdessen aus der SharePoint-So
 ```
 
 Das ist ein undokumentiertes Format. Erscheint die Registerkarte fehlerhaft, genügt es, den Parameter wieder wegzulassen.
+
+#### Registerkarten entfernen
+
+`removeTab` entfernt Registerkarten des Standardkanals anhand ihres Namens, zum Beispiel das leere Notizbuch von EasyLife:
+
+```text
+...&createTeamsTab=true&removeTab=Notes
+```
+
+Mehrere Namen sind kommagetrennt möglich. Entfernt wird nur die Registerkarte; das Notizbuch selbst bleibt in SharePoint bestehen. Dafür wird zusätzlich die Berechtigung `TeamsTab.Delete.All` benötigt.
+
+#### Zielbibliothek wählen
+
+Standardmässig wird das geklonte Notizbuch in dieselbe Bibliothek gelegt wie das Gruppen-Notizbuch, also üblicherweise **Site Assets**. Mit `targetLibrary` lässt sich eine andere Bibliothek der Team-Site wählen:
+
+```text
+...&targetNotebookName=Vorlage&targetLibrary=Documents
+```
+
+`Documents` ist die Bibliothek, die in Teams unter **Dateien** sichtbar ist. Das kann für Backup-Werkzeuge und für Anwender übersichtlicher sein.
 
 Die Registerkarte öffnet die SharePoint-Ansicht des Notizbuchs, in der die Abschnittsleiste sichtbar ist. Schlägt das Anheften fehl, zum Beispiel wegen fehlender Berechtigung, bleibt das kopierte Notizbuch trotzdem bestehen und die Antwort enthält `tabError`.
 

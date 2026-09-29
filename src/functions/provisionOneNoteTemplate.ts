@@ -6,7 +6,7 @@ import {
   TemplateSource,
 } from "../services/notebookSectionCopier";
 import { findGroupNotebook } from "../services/oneNoteApi";
-import { isTabType, pinTab, TabType } from "../services/teamsTab";
+import { isTabType, pinTab, removeTabs, TabType } from "../services/teamsTab";
 
 /** Extracts the newly created group's id from the EasyLife 365 webhook payload. */
 function extractGroupId(body: unknown): string | undefined {
@@ -115,6 +115,12 @@ export async function provisionOneNoteTemplate(
   const tabTypeValue = readList(request, ["tabType", "teamsTabType"], ["DEFAULT_TAB_TYPE"])[0] ?? "onenote";
   const tabType: TabType = isTabType(tabTypeValue) ? tabTypeValue : "onenote";
   const tabNotebookId = readList(request, ["tabNotebookId", "notebookId"], ["DEFAULT_TAB_NOTEBOOK_ID"])[0];
+  const removeTabNames = readList(
+    request,
+    ["removeTab", "removeTabs", "removeTabName", "removeTabNames"],
+    ["DEFAULT_REMOVE_TAB_NAMES"]
+  );
+  const targetLibrary = readList(request, ["targetLibrary", "library"], ["DEFAULT_TARGET_LIBRARY"])[0];
 
   const sources: TemplateSource[] = [
     ...templateSiteUrls.map((siteUrl) => ({ kind: "site" as const, siteUrl, notebookNames })),
@@ -143,6 +149,8 @@ export async function provisionOneNoteTemplate(
       tabValues,
       tabType,
       tabNotebookId,
+      removeTabNames,
+      targetLibrary,
     })
   );
 
@@ -155,11 +163,13 @@ export async function provisionOneNoteTemplate(
         sources,
         targetGroupId,
         notebookName: targetNotebookNames[0],
+        libraryName: targetLibrary,
       });
 
       let tabPinned: string | undefined;
       let tabError: string | undefined;
       let oneNoteApiError: string | undefined;
+      let tabsRemoved: string[] | undefined;
       const tabName = resolveTabName(tabValues, targetNotebookNames[0]);
       if (tabName) {
         // Reveals whether app-only access to the OneNote API is possible in this tenant.
@@ -204,11 +214,22 @@ export async function provisionOneNoteTemplate(
         }
       }
 
+      if (removeTabNames.length) {
+        try {
+          tabsRemoved = await removeTabs(targetGroupId, removeTabNames, token);
+        } catch (err) {
+          context.warn("Could not remove Teams tabs", (err as Error).message);
+        }
+      }
+
       context.log(
         `Cloned notebook into group ${targetGroupId}.`,
-        JSON.stringify({ ...result, tabPinned, tabError, oneNoteApiError })
+        JSON.stringify({ ...result, tabPinned, tabError, oneNoteApiError, tabsRemoved })
       );
-      return { status: 200, jsonBody: { status: "ok", ...result, tabPinned, tabError, oneNoteApiError } };
+      return {
+        status: 200,
+        jsonBody: { status: "ok", ...result, tabPinned, tabError, oneNoteApiError, tabsRemoved },
+      };
     }
 
     const result = await copyTemplateSectionsToGroup({

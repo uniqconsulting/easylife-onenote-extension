@@ -479,6 +479,8 @@ export interface CopyNotebookOptions {
   sources: TemplateSource[];
   targetGroupId: string;
   notebookName?: string;
+  /** Defaults to the library that already holds the group notebook, usually "Site Assets". */
+  libraryName?: string;
 }
 
 export interface CopyNotebookResult {
@@ -510,7 +512,7 @@ async function findFirstTemplateNotebook(sources: TemplateSource[], token: strin
 
 /** Copies the whole template notebook so the group gets a real notebook with its own sections. */
 export async function copyTemplateNotebookToGroup(options: CopyNotebookOptions): Promise<CopyNotebookResult> {
-  const { token, sources, targetGroupId, notebookName } = options;
+  const { token, sources, targetGroupId, notebookName, libraryName } = options;
 
   const source = await findFirstTemplateNotebook(sources, token);
   const targetSiteId = await waitForProvisioned(`Site of group ${targetGroupId}`, () =>
@@ -522,27 +524,39 @@ export async function copyTemplateNotebookToGroup(options: CopyNotebookOptions):
     async () => (await findNotebooks(targetSiteId, [], token))[0]
   );
 
+  let targetDrive: DriveRef = { id: groupNotebook.driveId, name: groupNotebook.driveName };
+  if (libraryName) {
+    const drives = await listDrives(targetSiteId, token);
+    const match = drives.find((d) => d.name.toLowerCase() === libraryName.toLowerCase());
+    if (!match) {
+      throw new Error(
+        `Library "${libraryName}" not found in site ${targetSiteId}. Available: ${drives.map((d) => d.name).join(", ")}`
+      );
+    }
+    targetDrive = match;
+  }
+
   const name = notebookName ?? source.folderName;
   const root = await getJson<{ id: string }>(
-    `/drives/${groupNotebook.driveId}/root?$select=id`,
+    `/drives/${targetDrive.id}/root?$select=id`,
     token,
-    `Resolving root of ${groupNotebook.driveName}`
+    `Resolving root of ${targetDrive.name}`
   );
 
   const findCopy = async (): Promise<DriveItem | undefined> =>
-    (await listChildren(groupNotebook.driveId, "root/children", token)).find(
+    (await listChildren(targetDrive.id, "root/children", token)).find(
       (item) => item.name.toLowerCase() === name.toLowerCase()
     );
 
   const existing = await findCopy();
   if (existing) {
-    await graphFetch(`/drives/${groupNotebook.driveId}/items/${existing.id}`, token, { method: "DELETE" });
+    await graphFetch(`/drives/${targetDrive.id}/items/${existing.id}`, token, { method: "DELETE" });
   }
 
   const response = await graphFetch(`/drives/${source.driveId}/items/${source.folderId}/copy`, token, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ parentReference: { driveId: groupNotebook.driveId, id: root.id }, name }),
+    body: JSON.stringify({ parentReference: { driveId: targetDrive.id, id: root.id }, name }),
   });
 
   if (!response.ok && response.status !== 202) {
@@ -560,7 +574,7 @@ export async function copyTemplateNotebookToGroup(options: CopyNotebookOptions):
   }
 
   const item = await getJson<{ webUrl?: string; sharepointIds?: { listItemUniqueId?: string } }>(
-    `/drives/${groupNotebook.driveId}/items/${copied.id}?$select=webUrl,sharepointIds`,
+    `/drives/${targetDrive.id}/items/${copied.id}?$select=webUrl,sharepointIds`,
     token,
     `Reading copied notebook ${name}`
   );
@@ -579,7 +593,7 @@ export async function copyTemplateNotebookToGroup(options: CopyNotebookOptions):
 
   return {
     templateNotebook: `${source.driveName}/${source.folderName}`,
-    targetNotebook: `${groupNotebook.driveName}/${name}`,
+    targetNotebook: `${targetDrive.name}/${name}`,
     notebookUrl,
     notebookEmbedUrl,
     notebookFolderUrl: item.webUrl ?? site.webUrl,

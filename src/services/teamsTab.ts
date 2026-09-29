@@ -79,6 +79,17 @@ export async function pinTab(options: PinTabOptions): Promise<void> {
       });
 
       if (response.ok) {
+        // Teams appends " (1)" when the OneNote app derives its own name from the notebook.
+        const tab = (await response.json().catch(() => undefined)) as
+          | { id?: string; displayName?: string }
+          | undefined;
+        if (tab?.id && tab.displayName !== displayName) {
+          await graphFetch(`/teams/${groupId}/channels/${channel.id}/tabs/${tab.id}`, token, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ displayName }),
+          });
+        }
         return;
       }
       lastError = `${response.status} ${await response.text()}`;
@@ -92,4 +103,33 @@ export async function pinTab(options: PinTabOptions): Promise<void> {
   }
 
   throw new Error(`Pinning the Teams tab "${displayName}" failed: ${lastError}`);
+}
+
+/** Unpins tabs of the primary channel by display name, for example the empty EasyLife notebook. */
+export async function removeTabs(groupId: string, displayNames: string[], token: string): Promise<string[]> {
+  const channelResponse = await graphFetch(`/teams/${groupId}/primaryChannel?$select=id`, token);
+  if (!channelResponse.ok) {
+    throw new Error(`Resolving the primary channel failed: ${channelResponse.status} ${await channelResponse.text()}`);
+  }
+  const channel = (await channelResponse.json()) as { id: string };
+
+  const tabsResponse = await graphFetch(`/teams/${groupId}/channels/${channel.id}/tabs`, token);
+  if (!tabsResponse.ok) {
+    throw new Error(`Listing tabs failed: ${tabsResponse.status} ${await tabsResponse.text()}`);
+  }
+
+  const wanted = displayNames.map((name) => name.trim().toLowerCase());
+  const tabs = ((await tabsResponse.json()) as { value: { id: string; displayName: string }[] }).value;
+  const removed: string[] = [];
+
+  for (const tab of tabs.filter((t) => wanted.includes(t.displayName?.trim().toLowerCase()))) {
+    const response = await graphFetch(`/teams/${groupId}/channels/${channel.id}/tabs/${tab.id}`, token, {
+      method: "DELETE",
+    });
+    if (response.ok) {
+      removed.push(tab.displayName);
+    }
+  }
+
+  return removed;
 }

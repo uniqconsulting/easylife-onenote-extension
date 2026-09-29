@@ -102,6 +102,7 @@ Only required for pinning a Teams tab:
 
 - `Channel.ReadBasic.All`
 - `TeamsTab.Create`
+- `TeamsTab.Delete.All` only for removing existing tabs
 
 Optional, for attempting to preconfigure the OneNote tab:
 
@@ -278,6 +279,26 @@ With `tabNotebookId=auto` the notebook id is derived from the SharePoint sourced
 ```
 
 This format is undocumented. If the tab renders incorrectly, simply drop the parameter again.
+
+#### Remove Tabs
+
+`removeTab` unpins tabs of the primary channel by display name, for example the empty EasyLife notebook:
+
+```text
+...&createTeamsTab=true&removeTab=Notes
+```
+
+Several names can be passed comma-separated. Only the tab is removed; the notebook itself stays in SharePoint. This additionally requires the `TeamsTab.Delete.All` permission.
+
+#### Choose the Target Library
+
+By default the cloned notebook goes into the same library as the group notebook, usually **Site Assets**. `targetLibrary` selects a different library of the team site:
+
+```text
+...&targetNotebookName=Template&targetLibrary=Documents
+```
+
+`Documents` is the library shown under **Files** in Teams, which can be easier to find for backup tools and for users.
 
 If pinning fails, for example because the permission is missing, the copied notebook still remains and the response contains `tabError`.
 
