@@ -19,6 +19,22 @@ function extractGroupId(body: unknown): string | undefined {
   return typeof candidate === "string" ? candidate : undefined;
 }
 
+/** Extracts the newly created group's display name from the EasyLife 365 webhook payload. */
+function extractGroupName(body: unknown): string | undefined {
+  if (!body || typeof body !== "object") {
+    return undefined;
+  }
+  const record = body as Record<string, unknown>;
+  const group = record.group as Record<string, unknown> | undefined;
+  const candidate = group?.displayName ?? record.displayName;
+  return typeof candidate === "string" ? candidate : undefined;
+}
+
+/** OneNote numbers notebooks that share a display name, so names can be made unique. */
+function applyPlaceholders(value: string, groupName: string | undefined): string {
+  return value.replace(/\{group(?:Name)?\}/gi, groupName ?? "").replace(/\s{2,}/g, " ").trim();
+}
+
 function splitNames(value: string | null | undefined): string[] {
   return (value ?? "")
     .split(",")
@@ -158,11 +174,13 @@ export async function provisionOneNoteTemplate(
     const token = await getGraphAccessToken();
 
     if (targetNotebookNames.length) {
+      const groupName = extractGroupName(body);
+      const notebookName = applyPlaceholders(targetNotebookNames[0], groupName);
       const result = await copyTemplateNotebookToGroup({
         token,
         sources,
         targetGroupId,
-        notebookName: targetNotebookNames[0],
+        notebookName,
         libraryName: targetLibrary,
       });
 
@@ -171,13 +189,13 @@ export async function provisionOneNoteTemplate(
       let oneNoteApiError: string | undefined;
       let tabsRemoved: string[] | undefined;
       let tabNames: PinTabResult | undefined;
-      const tabName = resolveTabName(tabValues, targetNotebookNames[0]);
+      const tabName = resolveTabName(tabValues, notebookName);
       if (tabName) {
         // Reveals whether app-only access to the OneNote API is possible in this tenant.
         let oneNote: { notebookId: string; notebookName: string; webUrl: string } | undefined;
         if (tabType === "onenote") {
           try {
-            const notebook = await findGroupNotebook(targetGroupId, targetNotebookNames[0], token);
+            const notebook = await findGroupNotebook(targetGroupId, notebookName, token);
             oneNote = { notebookId: notebook.id, notebookName: notebook.displayName, webUrl: notebook.webUrl };
           } catch (err) {
             oneNoteApiError = (err as Error).message;
@@ -190,7 +208,7 @@ export async function provisionOneNoteTemplate(
               tabNotebookId.toLowerCase() === "auto" ? `1-${result.notebookItemId}` : tabNotebookId;
             oneNote = {
               notebookId,
-              notebookName: targetNotebookNames[0],
+              notebookName,
               webUrl: result.notebookUrl,
             };
           }

@@ -285,6 +285,18 @@ With `tabNotebookId=auto` the notebook id is derived from the SharePoint sourced
 
 This format is undocumented. If the tab renders incorrectly, simply drop the parameter again.
 
+#### Make Names Unique
+
+OneNote numbers notebooks that share a display name for the same user. Anyone who is a member of several teams therefore sees the tab as `Template (1)` once they open it. A unique notebook name fixes this, using the `{group}` placeholder that is replaced by the team name:
+
+```text
+...&targetNotebookName=Template%20%7Bgroup%7D&createTeamsTab=Template
+```
+
+`Template {group}` then becomes `Template Contoso Project`, for example. The tab itself can keep the short name `Template`. Teams names its own notebook `<Team> Notebook` for exactly the same reason.
+
+`{groupName}` is an equivalent spelling.
+
 #### Remove Tabs
 
 `removeTab` unpins tabs of the primary channel by display name, for example the empty EasyLife notebook:

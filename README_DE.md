@@ -283,8 +283,19 @@ Mit `tabNotebookId=auto` wird die Notizbuch-ID stattdessen aus der SharePoint-So
 
 Das ist ein undokumentiertes Format. Erscheint die Registerkarte fehlerhaft, genügt es, den Parameter wieder wegzulassen.
 
-#### Registerkarten entfernen
+#### Namen eindeutig machen
 
+OneNote nummeriert Notizbücher, die für denselben Anwender gleich heissen. Wer in mehreren Teams ist, sieht die Registerkarte deshalb als `Vorlage (1)`, sobald er sie öffnet. Abhilfe schafft ein eindeutiger Notizbuchname über den Platzhalter `{group}`, der durch den Teamnamen ersetzt wird:
+
+```text
+...&targetNotebookName=CDC%20Vorlage%20%7Bgroup%7D&createTeamsTab=CDC%20Vorlage
+```
+
+Aus `CDC Vorlage {group}` wird dann zum Beispiel `CDC Vorlage Projekt Contoso`. Die Registerkarte kann weiterhin kurz `CDC Vorlage` heissen. Teams benennt sein eigenes Notizbuch aus genau demselben Grund `<Team> Notebook`.
+
+`{groupName}` ist eine gleichwertige Schreibweise.
+
+#### Registerkarten entfernen
 `removeTab` entfernt Registerkarten des Standardkanals anhand ihres Namens, zum Beispiel das leere Notizbuch von EasyLife:
 
 ```text
