@@ -102,7 +102,12 @@ Only required for pinning a Teams tab:
 
 - `Channel.ReadBasic.All`
 - `TeamsTab.Create`
-- `TeamsTab.Delete.All` only for removing existing tabs
+
+When `removeTab` is used, or the tab name has to be corrected, `TeamsTab.Create` is not sufficient. Use instead:
+
+- `TeamsTab.ReadWriteForTeam.All`
+
+That single permission covers creating, reading, renaming, and removing tabs, and replaces `TeamsTab.Create`.
 
 Optional, for attempting to preconfigure the OneNote tab:
 
@@ -288,7 +293,7 @@ This format is undocumented. If the tab renders incorrectly, simply drop the par
 ...&createTeamsTab=true&removeTab=Notes
 ```
 
-Several names can be passed comma-separated. Only the tab is removed; the notebook itself stays in SharePoint. This additionally requires the `TeamsTab.Delete.All` permission.
+Several names can be passed comma-separated. Only the tab is removed; the notebook itself stays in SharePoint. This requires the `TeamsTab.ReadWriteForTeam.All` permission.
 
 #### Choose the Target Library
 

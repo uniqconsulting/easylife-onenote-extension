@@ -100,7 +100,12 @@ Nur für das Anheften einer Teams-Registerkarte zusätzlich:
 
 - `Channel.ReadBasic.All`
 - `TeamsTab.Create`
-- `TeamsTab.Delete.All` nur zum Entfernen bestehender Registerkarten
+
+Wird `removeTab` verwendet oder soll der Registerkartenname korrigiert werden, reicht `TeamsTab.Create` nicht aus. Stattdessen:
+
+- `TeamsTab.ReadWriteForTeam.All`
+
+Diese eine Berechtigung deckt Anlegen, Lesen, Umbenennen und Entfernen ab und ersetzt `TeamsTab.Create`.
 
 Optional für den Versuch, die OneNote-Registerkarte vorzukonfigurieren:
 
@@ -286,7 +291,7 @@ Das ist ein undokumentiertes Format. Erscheint die Registerkarte fehlerhaft, gen
 ...&createTeamsTab=true&removeTab=Notes
 ```
 
-Mehrere Namen sind kommagetrennt möglich. Entfernt wird nur die Registerkarte; das Notizbuch selbst bleibt in SharePoint bestehen. Dafür wird zusätzlich die Berechtigung `TeamsTab.Delete.All` benötigt.
+Mehrere Namen sind kommagetrennt möglich. Entfernt wird nur die Registerkarte; das Notizbuch selbst bleibt in SharePoint bestehen. Dafür wird die Berechtigung `TeamsTab.ReadWriteForTeam.All` benötigt.
 
 #### Zielbibliothek wählen
 
