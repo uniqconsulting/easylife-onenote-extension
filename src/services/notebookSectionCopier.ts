@@ -494,8 +494,7 @@ export interface CopyNotebookResult {
   notebookItemId: string;
 }
 
-async function findFirstTemplateNotebook(sources: TemplateSource[], token: string): Promise<NotebookLocation> {
-  const failures: string[] = [];
+async function findFirstTemplateNotebook(sources: TemplateSource[], token: string): Promise<NotebookLocation> {  const failures: string[] = [];
 
   for (const source of sources) {
     try {
@@ -510,6 +509,36 @@ async function findFirstTemplateNotebook(sources: TemplateSource[], token: strin
   }
 
   throw new Error(`No template notebook found. ${failures.join(" | ")}`);
+}
+
+/** Teams creates a channel folder lazily, so it may not exist yet when the webhook fires. */
+async function resolveOrCreateFolder(
+  drive: DriveRef,
+  folderPath: string,
+  token: string
+): Promise<{ id: string }> {
+  const encoded = folderPath.split("/").map(encodeURIComponent).join("/");
+
+  try {
+    return await waitForProvisioned(`Folder ${folderPath} of ${drive.name}`, () =>
+      getJson<{ id: string }>(
+        `/drives/${drive.id}/root:/${encoded}?$select=id`,
+        token,
+        `Resolving ${folderPath} of ${drive.name}`
+      )
+    );
+  } catch {
+    const response = await graphFetch(`/drives/${drive.id}/root/children`, token, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: folderPath, folder: {}, "@microsoft.graph.conflictBehavior": "return" }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Creating folder "${folderPath}" failed: ${response.status} ${await response.text()}`);
+    }
+    return (await response.json()) as { id: string };
+  }
 }
 
 /** Copies the whole template notebook so the group gets a real notebook with its own sections. */
@@ -539,14 +568,13 @@ export async function copyTemplateNotebookToGroup(options: CopyNotebookOptions):
   }
 
   const name = notebookName ?? source.folderName;
-  const parentPath = folderPath
-    ? `root:/${folderPath.split("/").map(encodeURIComponent).join("/")}`
-    : "root";
-  const parent = await getJson<{ id: string }>(
-    `/drives/${targetDrive.id}/${parentPath}?$select=id`,
-    token,
-    `Resolving ${folderPath ?? "root"} of ${targetDrive.name}`
-  );
+  const parent = folderPath
+    ? await resolveOrCreateFolder(targetDrive, folderPath, token)
+    : await getJson<{ id: string }>(
+        `/drives/${targetDrive.id}/root?$select=id`,
+        token,
+        `Resolving root of ${targetDrive.name}`
+      );
 
   const findCopy = async (): Promise<DriveItem | undefined> =>
     (await listChildren(targetDrive.id, `items/${parent.id}/children`, token)).find(
