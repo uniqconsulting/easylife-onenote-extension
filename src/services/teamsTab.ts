@@ -150,3 +150,25 @@ export async function removeTabs(groupId: string, displayNames: string[], token:
 
   return removed;
 }
+
+/** Diagnostic: shows which tabs and apps the channel really holds after provisioning. */
+export async function listTabs(groupId: string, token: string): Promise<{ name: string; app?: string }[]> {
+  const channelResponse = await graphFetch(`/teams/${groupId}/primaryChannel?$select=id`, token);
+  if (!channelResponse.ok) {
+    return [];
+  }
+  const channel = (await channelResponse.json()) as { id: string };
+
+  const response = await graphFetch(`/teams/${groupId}/channels/${channel.id}/tabs?$expand=teamsApp`, token);
+  if (!response.ok) {
+    return [];
+  }
+
+  const body = (await response.json()) as {
+    value: { displayName?: string; teamsApp?: { id?: string; displayName?: string } }[];
+  };
+  return body.value.map((tab) => ({
+    name: tab.displayName ?? "",
+    app: tab.teamsApp?.displayName ?? tab.teamsApp?.id,
+  }));
+}

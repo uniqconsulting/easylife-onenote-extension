@@ -6,7 +6,7 @@ import {
   TemplateSource,
 } from "../services/notebookSectionCopier";
 import { findGroupNotebook } from "../services/oneNoteApi";
-import { isTabType, pinTab, PinTabResult, removeTabs, TabType } from "../services/teamsTab";
+import { isTabType, listTabs, pinTab, PinTabResult, removeTabs, TabType } from "../services/teamsTab";
 
 /** Extracts the newly created group's id from the EasyLife 365 webhook payload. */
 function extractGroupId(body: unknown): string | undefined {
@@ -176,6 +176,17 @@ export async function provisionOneNoteTemplate(
     const token = await getGraphAccessToken();
 
     if (targetNotebookNames.length) {
+      let tabsRemoved: string[] | undefined;
+
+      // Runs before the clone so the empty notebook disappears as early as possible.
+      if (removeTabNames.length) {
+        try {
+          tabsRemoved = await removeTabs(targetGroupId, removeTabNames, token);
+        } catch (err) {
+          context.warn("Could not remove Teams tabs", (err as Error).message);
+        }
+      }
+
       const groupName = extractGroupName(body);
       const notebookName = applyPlaceholders(targetNotebookNames[0], groupName);
       const result = await copyTemplateNotebookToGroup({
@@ -190,17 +201,7 @@ export async function provisionOneNoteTemplate(
       let tabPinned: string | undefined;
       let tabError: string | undefined;
       let oneNoteApiError: string | undefined;
-      let tabsRemoved: string[] | undefined;
       let tabNames: PinTabResult | undefined;
-
-      // Removing first avoids a second OneNote tab instance, which Teams labels " (1)".
-      if (removeTabNames.length) {
-        try {
-          tabsRemoved = await removeTabs(targetGroupId, removeTabNames, token);
-        } catch (err) {
-          context.warn("Could not remove Teams tabs", (err as Error).message);
-        }
-      }
 
       const tabName = resolveTabName(tabValues, notebookName);
       if (tabName) {
@@ -246,13 +247,24 @@ export async function provisionOneNoteTemplate(
         }
       }
 
+      const tabsInChannel = await listTabs(targetGroupId, token);
+
       context.log(
         `Cloned notebook into group ${targetGroupId}.`,
-        JSON.stringify({ ...result, tabPinned, tabError, oneNoteApiError, tabsRemoved, tabNames })
+        JSON.stringify({ ...result, tabPinned, tabError, oneNoteApiError, tabsRemoved, tabNames, tabsInChannel })
       );
       return {
         status: 200,
-        jsonBody: { status: "ok", ...result, tabPinned, tabError, oneNoteApiError, tabsRemoved, tabNames },
+        jsonBody: {
+          status: "ok",
+          ...result,
+          tabPinned,
+          tabError,
+          oneNoteApiError,
+          tabsRemoved,
+          tabNames,
+          tabsInChannel,
+        },
       };
     }
 
