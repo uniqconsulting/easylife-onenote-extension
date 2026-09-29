@@ -6,7 +6,7 @@ import {
   TemplateSource,
 } from "../services/notebookSectionCopier";
 import { findGroupNotebook } from "../services/oneNoteApi";
-import { isTabType, pinTab, removeTabs, TabType } from "../services/teamsTab";
+import { isTabType, pinTab, PinTabResult, removeTabs, TabType } from "../services/teamsTab";
 
 /** Extracts the newly created group's id from the EasyLife 365 webhook payload. */
 function extractGroupId(body: unknown): string | undefined {
@@ -170,6 +170,7 @@ export async function provisionOneNoteTemplate(
       let tabError: string | undefined;
       let oneNoteApiError: string | undefined;
       let tabsRemoved: string[] | undefined;
+      let tabNames: PinTabResult | undefined;
       const tabName = resolveTabName(tabValues, targetNotebookNames[0]);
       if (tabName) {
         // Reveals whether app-only access to the OneNote API is possible in this tenant.
@@ -196,7 +197,7 @@ export async function provisionOneNoteTemplate(
         }
 
         try {
-          await pinTab({
+          tabNames = await pinTab({
             groupId: targetGroupId,
             displayName: tabName,
             tabType,
@@ -206,7 +207,7 @@ export async function provisionOneNoteTemplate(
             oneNote,
             token,
           });
-          tabPinned = tabName;
+          tabPinned = tabNames.finalName ?? tabName;
         } catch (err) {
           // The notebook is already in place, so a missing tab permission must not fail the run.
           tabError = (err as Error).message;
@@ -224,11 +225,11 @@ export async function provisionOneNoteTemplate(
 
       context.log(
         `Cloned notebook into group ${targetGroupId}.`,
-        JSON.stringify({ ...result, tabPinned, tabError, oneNoteApiError, tabsRemoved })
+        JSON.stringify({ ...result, tabPinned, tabError, oneNoteApiError, tabsRemoved, tabNames })
       );
       return {
         status: 200,
-        jsonBody: { status: "ok", ...result, tabPinned, tabError, oneNoteApiError, tabsRemoved },
+        jsonBody: { status: "ok", ...result, tabPinned, tabError, oneNoteApiError, tabsRemoved, tabNames },
       };
     }
 

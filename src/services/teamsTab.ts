@@ -62,8 +62,15 @@ function buildBody(options: PinTabOptions): Record<string, unknown> {
   return body;
 }
 
+export interface PinTabResult {
+  /** What Graph reported right after creation, before any rename. */
+  createdName?: string;
+  finalName?: string;
+  renameError?: string;
+}
+
 /** Pins the copied notebook as a tab in the team's primary channel. */
-export async function pinTab(options: PinTabOptions): Promise<void> {
+export async function pinTab(options: PinTabOptions): Promise<PinTabResult> {
   const { groupId, displayName, token } = options;
   let lastError = "unknown error";
 
@@ -79,18 +86,28 @@ export async function pinTab(options: PinTabOptions): Promise<void> {
       });
 
       if (response.ok) {
-        // Teams appends " (1)" when the OneNote app derives its own name from the notebook.
         const tab = (await response.json().catch(() => undefined)) as
           | { id?: string; displayName?: string }
           | undefined;
-        if (tab?.id && tab.displayName !== displayName) {
-          await graphFetch(`/teams/${groupId}/channels/${channel.id}/tabs/${tab.id}`, token, {
+        const result: PinTabResult = { createdName: tab?.displayName, finalName: tab?.displayName };
+
+        // Teams appends " (1)" when the OneNote app derives its own name from the notebook.
+        if (tab?.id) {
+          const patch = await graphFetch(`/teams/${groupId}/channels/${channel.id}/tabs/${tab.id}`, token, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ displayName }),
           });
+
+          if (patch.ok) {
+            const updated = (await patch.json().catch(() => undefined)) as { displayName?: string } | undefined;
+            result.finalName = updated?.displayName ?? displayName;
+          } else {
+            result.renameError = `${patch.status} ${await patch.text()}`;
+          }
         }
-        return;
+
+        return result;
       }
       lastError = `${response.status} ${await response.text()}`;
     } else {
