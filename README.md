@@ -350,6 +350,101 @@ The Teams channel tab is pinned to the notebook's default section, which is name
 
 The target group is not configured in the URL. EasyLife sends the new group ID after provisioning, normally under `group.id`.
 
+### Recipes: Building the Right URL
+
+The examples below build on each other. Start at level 1 and add only what you actually need. Placeholders:
+
+```text
+<app>   = func-app-easylife365-onenote-extension.azurewebsites.net
+<site>  = https://contoso.sharepoint.com/sites/Templates
+```
+
+In every example `<site>` is URL encoded as `https%3A%2F%2Fcontoso.sharepoint.com%2Fsites%2FTemplates`. Spaces become `%20` and `@` becomes `%40`.
+
+#### Level 1: Copy Everything From a Template
+
+The shortest possible call. Every section of every notebook in the site is copied into the EasyLife notebook under its original name.
+
+```text
+https://<app>/api/onenote-template?templateSiteUrl=https%3A%2F%2Fcontoso.sharepoint.com%2Fsites%2FTemplates
+```
+
+#### Level 2: Pick One Template Notebook
+
+Useful as soon as the site holds several notebooks.
+
+```text
+https://<app>/api/onenote-template?templateSiteUrl=https%3A%2F%2Fcontoso.sharepoint.com%2Fsites%2FTemplates&templateNotebookName=Template
+```
+
+#### Level 3: Copy a Single Section
+
+```text
+https://<app>/api/onenote-template?templateSiteUrl=https%3A%2F%2Fcontoso.sharepoint.com%2Fsites%2FTemplates&templateNotebookName=Template&templateSectionName=Meetings
+```
+
+Several sections comma-separated: `&templateSectionName=Meetings,Documentation`
+
+#### Level 4: Show the Content Directly in the Teams Tab
+
+The channel tab **Notes** is pinned to the default section. `@default` overwrites exactly that section, so users see the content without a click. No separate section is created.
+
+```text
+https://<app>/api/onenote-template?templateSiteUrl=https%3A%2F%2Fcontoso.sharepoint.com%2Fsites%2FTemplates&templateNotebookName=Template&templateSectionName=Meetings&targetSectionName=%40default
+```
+
+#### Level 5: Own Notebook With Its Own Tab
+
+Recommended when the template's section structure should stay visible. The whole notebook is cloned and pinned as an embedded OneNote tab. `tabNotebookId=auto` removes the one-time selection dialog.
+
+```text
+https://<app>/api/onenote-template?templateSiteUrl=https%3A%2F%2Fcontoso.sharepoint.com%2Fsites%2FTemplates&templateNotebookName=Template&targetNotebookName=Project&createTeamsTab=true&tabType=onenote&tabNotebookId=auto
+```
+
+#### Level 6: Hide the Empty EasyLife Tab
+
+Like level 5, and additionally removes the empty **Notes** tab. The notebook itself stays in SharePoint.
+
+```text
+https://<app>/api/onenote-template?templateSiteUrl=https%3A%2F%2Fcontoso.sharepoint.com%2Fsites%2FTemplates&templateNotebookName=Template&targetNotebookName=Project&createTeamsTab=true&tabType=onenote&tabNotebookId=auto&removeTab=Notes
+```
+
+#### Level 7: Control Where the Notebook Is Stored
+
+Places the cloned notebook in the **Documents** library, which is what the Teams **Files** tab points to.
+
+```text
+https://<app>/api/onenote-template?templateSiteUrl=https%3A%2F%2Fcontoso.sharepoint.com%2Fsites%2FTemplates&templateNotebookName=Template&targetNotebookName=Project&targetLibrary=Documents&createTeamsTab=true&tabType=onenote&tabNotebookId=auto&removeTab=Notes
+```
+
+### Which Variant Fits?
+
+| Goal | Recommended level |
+|---|---|
+| Content visible immediately, no extra tab | Level 4 with `targetSectionName=@default` |
+| Keep the template's section names | Level 5 |
+| Tidy channel bar without an empty notebook | Level 6 |
+| Notebook should be discoverable under **Files** | Level 7 |
+| Combine several templates | Level 3 with comma-separated lists |
+
+### Parameter Reference
+
+| Parameter | Default | Effect |
+|---|---|---|
+| `templateSiteUrl` | – | Site holding the template; required unless `templateGroupId` is set |
+| `templateGroupId` | – | Alternative source: a Microsoft 365 group |
+| `templateNotebookName` | all notebooks | restricts to specific notebooks |
+| `templateSectionName` | all sections | restricts to specific sections; expects the **file name** |
+| `targetSectionName` | `@source` | `@source`, `@default`, or a custom name |
+| `targetNotebookName` | – | switches to cloning the notebook |
+| `targetLibrary` | library of the group notebook | target library for the clone |
+| `createTeamsTab` | off | pins a tab; accepts `true` or a name |
+| `tabType` | `onenote` | `onenote`, `library`, or `website` |
+| `tabNotebookId` | – | `auto` configures the tab without the selection dialog |
+| `removeTab` | – | removes tabs by display name |
+
+Every parameter accepts singular and plural spellings as well as comma-separated lists. If a parameter is missing from the URL, the matching application setting applies.
+
 ## 6. Test the Installation
 
 1. Verify that the template notebook exists and its sections contain at least one page.

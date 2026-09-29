@@ -348,6 +348,101 @@ Die Teams-Registerkarte eines Kanals ist fest an den Standardabschnitt des Notiz
 
 Das Ziel wird nicht in der URL konfiguriert. EasyLife sendet die neue Gruppen-ID nach der Bereitstellung im Payload, normalerweise unter `group.id`.
 
+### Rezepte: die passende URL bauen
+
+Die folgenden Beispiele bauen aufeinander auf. Beginne mit Stufe 1 und ergänze nur, was du wirklich brauchst. Als Platzhalter dienen:
+
+```text
+<app>   = func-app-easylife365-onenote-extension.azurewebsites.net
+<site>  = https://contoso.sharepoint.com/sites/Vorlagen
+```
+
+In allen Beispielen ist `<site>` URL-kodiert als `https%3A%2F%2Fcontoso.sharepoint.com%2Fsites%2FVorlagen`. Leerzeichen werden zu `%20`, das Zeichen `@` zu `%40`.
+
+#### Stufe 1: alles aus einer Vorlage übernehmen
+
+Der kürzestmögliche Aufruf. Alle Abschnitte aller Notizbücher der Site werden unter ihren Originalnamen in das EasyLife-Notizbuch kopiert.
+
+```text
+https://<app>/api/onenote-template?templateSiteUrl=https%3A%2F%2Fcontoso.sharepoint.com%2Fsites%2FVorlagen
+```
+
+#### Stufe 2: ein bestimmtes Notizbuch als Vorlage
+
+Sinnvoll, sobald die Site mehrere Notizbücher enthält.
+
+```text
+https://<app>/api/onenote-template?templateSiteUrl=https%3A%2F%2Fcontoso.sharepoint.com%2Fsites%2FVorlagen&templateNotebookName=Vorlage
+```
+
+#### Stufe 3: nur einen Abschnitt übernehmen
+
+```text
+https://<app>/api/onenote-template?templateSiteUrl=https%3A%2F%2Fcontoso.sharepoint.com%2Fsites%2FVorlagen&templateNotebookName=Vorlage&templateSectionName=Besprechungen
+```
+
+Mehrere Abschnitte kommagetrennt: `&templateSectionName=Besprechungen,Dokumentation`
+
+#### Stufe 4: Inhalt sofort in der Teams-Registerkarte zeigen
+
+Die Kanalregisterkarte **Notes** ist fest an den Standardabschnitt gebunden. `@default` überschreibt genau diesen, sodass Anwender den Inhalt ohne Klick sehen. Dafür entsteht kein eigener Abschnitt.
+
+```text
+https://<app>/api/onenote-template?templateSiteUrl=https%3A%2F%2Fcontoso.sharepoint.com%2Fsites%2FVorlagen&templateNotebookName=Vorlage&templateSectionName=Besprechungen&targetSectionName=%40default
+```
+
+#### Stufe 5: eigenes Notizbuch mit eigener Registerkarte
+
+Empfohlen, wenn die Abschnittsstruktur der Vorlage sichtbar bleiben soll. Das ganze Notizbuch wird geklont und als eingebettete OneNote-Registerkarte angeheftet. `tabNotebookId=auto` erspart den einmaligen Auswahldialog.
+
+```text
+https://<app>/api/onenote-template?templateSiteUrl=https%3A%2F%2Fcontoso.sharepoint.com%2Fsites%2FVorlagen&templateNotebookName=Vorlage&targetNotebookName=Projektvorlage&createTeamsTab=true&tabType=onenote&tabNotebookId=auto
+```
+
+#### Stufe 6: leere EasyLife-Registerkarte ausblenden
+
+Wie Stufe 5, zusätzlich wird die leere Registerkarte **Notes** entfernt. Das Notizbuch selbst bleibt in SharePoint erhalten.
+
+```text
+https://<app>/api/onenote-template?templateSiteUrl=https%3A%2F%2Fcontoso.sharepoint.com%2Fsites%2FVorlagen&templateNotebookName=Vorlage&targetNotebookName=Projektvorlage&createTeamsTab=true&tabType=onenote&tabNotebookId=auto&removeTab=Notes
+```
+
+#### Stufe 7: Ablageort steuern
+
+Legt das geklonte Notizbuch in die Bibliothek **Documents**, also dorthin, wo Teams unter **Dateien** hinzeigt.
+
+```text
+https://<app>/api/onenote-template?templateSiteUrl=https%3A%2F%2Fcontoso.sharepoint.com%2Fsites%2FVorlagen&templateNotebookName=Vorlage&targetNotebookName=Projektvorlage&targetLibrary=Documents&createTeamsTab=true&tabType=onenote&tabNotebookId=auto&removeTab=Notes
+```
+
+### Welche Variante passt?
+
+| Ziel | Empfohlene Stufe |
+|---|---|
+| Inhalt sofort sichtbar, kein zusätzlicher Tab | Stufe 4 mit `targetSectionName=@default` |
+| Abschnittsnamen der Vorlage bleiben erhalten | Stufe 5 |
+| Aufgeräumte Kanalleiste ohne leeres Notizbuch | Stufe 6 |
+| Notizbuch soll unter **Dateien** auffindbar sein | Stufe 7 |
+| Mehrere Vorlagen kombinieren | Stufe 3 mit kommagetrennten Listen |
+
+### Parameterreferenz
+
+| Parameter | Standard | Wirkung |
+|---|---|---|
+| `templateSiteUrl` | – | Site mit der Vorlage; Pflicht, sofern nicht `templateGroupId` gesetzt ist |
+| `templateGroupId` | – | Alternative Quelle: Microsoft-365-Gruppe |
+| `templateNotebookName` | alle Notizbücher | schränkt auf bestimmte Notizbücher ein |
+| `templateSectionName` | alle Abschnitte | schränkt auf bestimmte Abschnitte ein; erwartet den **Dateinamen** |
+| `targetSectionName` | `@source` | `@source`, `@default` oder ein eigener Name |
+| `targetNotebookName` | – | schaltet auf Notizbuch-Klon um |
+| `targetLibrary` | Bibliothek des Gruppen-Notizbuchs | Zielbibliothek für den Klon |
+| `createTeamsTab` | aus | heftet eine Registerkarte an; akzeptiert `true` oder einen Namen |
+| `tabType` | `onenote` | `onenote`, `library` oder `website` |
+| `tabNotebookId` | – | `auto` konfiguriert die Registerkarte ohne Auswahldialog |
+| `removeTab` | – | entfernt Registerkarten anhand ihres Namens |
+
+Alle Parameter akzeptieren Einzahl- und Mehrzahlschreibweise sowie kommagetrennte Listen. Fehlt ein Parameter in der URL, greift die entsprechende Application Setting.
+
 ## 6. Testen
 
 1. Prüfe, dass das Vorlage-Notizbuch existiert und die Vorlage-Sections mindestens eine Seite enthalten.
