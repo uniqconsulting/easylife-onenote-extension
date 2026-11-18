@@ -371,6 +371,8 @@ The Teams channel tab is pinned to the notebook's default section, which is name
 ...&templateSectionName=Status%20meeting&targetSectionName=%40default
 ```
 
+The function looks specifically for a known default section (`General`, `Allgemein`, or `Meeting Notes`). In the Netcloud configuration, `Meeting Notes` is used as the target section. If no recognized name is present, the function returns an error instead of overwriting an arbitrary existing section.
+
 > **Display name versus file name:** The function works on the `.one` files, but the section name shown in OneNote is stored **inside** the file. If a section was renamed in OneNote, the two can differ: the file may be called `Status meeting.one` while OneNote displays `Meeting Notes`. `templateSectionName` always refers to the **file name**, which the error message lists under `Available sections`. The name displayed in the target still comes from the file, so it stays `Meeting Notes` regardless of `targetSectionName`.
 
 The target group is not configured in the URL. EasyLife sends the new group ID after provisioning, normally under `group.id`.
@@ -505,7 +507,9 @@ A successful response looks like this:
 
 ### Sections do not appear in OneNote
 
-The function copies section files into the notebook folder. OneNote only adds them to its table of contents (`.onetoc2`) when the notebook is opened and synchronised, so newly copied sections can take a moment to show up.
+The function waits up to 150 seconds for Microsoft Graph to confirm the copy and verifies that each target `.one` file has the same size as its template file. If Graph reports a failure, the status cannot be checked, or the files do not match before the timeout, the webhook returns an error instead of reporting success. EasyLife can then show or retry the failed run.
+
+After a confirmed copy, OneNote still needs to add section files to its table of contents (`.onetoc2`) when the notebook is opened and synchronised, so newly copied sections can take a moment to show up.
 
 Check the invocation result first. `filesInTargetNotebook` lists what is physically present in the target folder:
 

@@ -24,6 +24,7 @@ export interface CopyTemplateResult {
 interface DriveItem {
   id: string;
   name: string;
+  size?: number;
   folder?: { childCount?: number };
   file?: { mimeType?: string };
 }
@@ -47,6 +48,9 @@ interface TemplateSection {
 
 const SECTION_EXTENSION = ".one";
 const NOTEBOOK_MARKER_EXTENSION = ".onetoc2";
+const COPY_WAIT_TIMEOUT_MS = 150_000;
+const COPY_POLL_INTERVAL_MS = 2_000;
+const COPY_STATUS_REQUEST_TIMEOUT_MS = 10_000;
 
 // Teams pins its channel tab to the notebook's default section, whose name is localised.
 export const DEFAULT_SECTION_TOKEN = "@default";
@@ -55,6 +59,7 @@ export const SOURCE_SECTION_TOKEN = "@source";
 const DEFAULT_SECTION_NAMES = [
   "general",
   "allgemein",
+  "meeting notes",
   "général",
   "generale",
   "algemeen",
@@ -170,7 +175,7 @@ async function listDrives(siteId: string, token: string): Promise<DriveRef[]> {
 
 async function listChildren(driveId: string, itemPath: string, token: string): Promise<DriveItem[]> {
   const body = await getJson<{ value: DriveItem[] }>(
-    `/drives/${driveId}/${itemPath}?$select=id,name,folder,file&$top=200`,
+    `/drives/${driveId}/${itemPath}?$select=id,name,size,folder,file&$top=200`,
     token,
     `Listing ${itemPath} of drive ${driveId}`
   );
@@ -343,35 +348,64 @@ async function waitForProvisioned<T>(what: string, resolve: () => Promise<T>): P
 }
 
 /** Graph reports copy progress on an unauthenticated monitor URL. */
-async function waitForCopyToFinish(monitorUrl: string): Promise<void> {
-  for (let attempt = 0; attempt < 10; attempt++) {
-    const response = await fetch(monitorUrl);
+async function waitForCopyToFinish(monitorUrl: string, deadline: number): Promise<void> {
+  let lastStatus = "unknown";
+
+  while (Date.now() < deadline) {
+    const controller = new AbortController();
+    const requestTimeout = setTimeout(
+      () => controller.abort(),
+      Math.min(COPY_STATUS_REQUEST_TIMEOUT_MS, deadline - Date.now())
+    );
+    let response: Response;
+    try {
+      response = await fetch(monitorUrl, { signal: controller.signal });
+    } catch (err) {
+      throw new Error(`Checking the copy status failed: ${(err as Error).message}`);
+    } finally {
+      clearTimeout(requestTimeout);
+    }
+
     if (!response.ok) {
-      return;
+      throw new Error(`Checking the copy status failed: ${response.status} ${await response.text()}`);
     }
 
     const status = (await response.json()) as { status?: string; error?: unknown };
-    if (status.status === "completed") {
+    lastStatus = status.status ?? "unknown";
+    if (lastStatus.toLowerCase() === "completed") {
       return;
     }
-    if (status.status === "failed") {
+    if (lastStatus.toLowerCase() === "failed") {
       throw new Error(`Copy failed: ${JSON.stringify(status.error)}`);
     }
-    await sleep(2000);
+
+    const remaining = deadline - Date.now();
+    if (remaining > 0) {
+      await sleep(Math.min(COPY_POLL_INTERVAL_MS, remaining));
+    }
   }
+
+  throw new Error(
+    `Copy did not complete within ${COPY_WAIT_TIMEOUT_MS / 1000} seconds. Last status: ${lastStatus}.`
+  );
 }
 
 async function copySectionFile(
   source: NotebookLocation,
-  sectionItemId: string,
+  sourceSection: DriveItem,
   target: NotebookLocation,
   newName: string,
-  token: string
+  token: string,
+  deadline: number
 ): Promise<void> {
+  if (!sourceSection.size || sourceSection.size <= 0) {
+    throw new Error(`Template section "${sourceSection.name}" is empty or its file size could not be read.`);
+  }
+
   const fileName = newName.toLowerCase().endsWith(SECTION_EXTENSION) ? newName : `${newName}${SECTION_EXTENSION}`;
 
   async function requestCopy(): Promise<Response> {
-    return graphFetch(`/drives/${source.driveId}/items/${sectionItemId}/copy`, token, {
+    return graphFetch(`/drives/${source.driveId}/items/${sourceSection.id}/copy`, token, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -403,8 +437,27 @@ async function copySectionFile(
 
   const monitorUrl = response.headers.get("Location");
   if (monitorUrl) {
-    await waitForCopyToFinish(monitorUrl);
+    await waitForCopyToFinish(monitorUrl, deadline);
+  } else if (response.status === 202) {
+    throw new Error(`Copying section "${newName}" was accepted without a status URL; completion cannot be verified.`);
   }
+
+  while (Date.now() < deadline) {
+    const copied = (await listChildren(target.driveId, `items/${target.folderId}/children`, token)).find(
+      (item) => item.name.toLowerCase() === fileName.toLowerCase()
+    );
+    if (copied?.size === sourceSection.size) {
+      return;
+    }
+    const remaining = deadline - Date.now();
+    if (remaining > 0) {
+      await sleep(Math.min(COPY_POLL_INTERVAL_MS, remaining));
+    }
+  }
+
+  throw new Error(
+    `Copied section "${newName}" was not verified in the target notebook within ${COPY_WAIT_TIMEOUT_MS / 1000} seconds.`
+  );
 }
 
 /** Resolves the section Teams shows by default, whatever it is called in this tenant. */
@@ -424,14 +477,19 @@ async function resolveDefaultSectionName(target: NotebookLocation, token: string
     if (defaultSection) {
       return defaultSection;
     }
-    await sleep(PROVISIONING_DELAY_MS);
+    if (attempt < PROVISIONING_ATTEMPTS - 1) {
+      await sleep(PROVISIONING_DELAY_MS);
+    }
   }
 
-  const fallback = files.find((f) => f.name.toLowerCase().endsWith(SECTION_EXTENSION))?.name;
-  if (!fallback) {
-    throw new Error("No section found to use as the default target section.");
-  }
-  return fallback;
+  const foundSections = files
+    .filter((file) => file.name.toLowerCase().endsWith(SECTION_EXTENSION))
+    .map((file) => file.name);
+  throw new Error(
+    `Could not find a recognized default section (General, Allgemein, Meeting Notes, etc.) in ` +
+      `${target.driveName}/${target.folderName} after ${PROVISIONING_ATTEMPTS} attempts. ` +
+      `Found sections: ${foundSections.join(", ") || "none"}.`
+  );
 }
 
 /** Keeps the first notebook that provides a section name when several templates overlap. */
@@ -603,6 +661,7 @@ export async function copyTemplateNotebookToGroup(options: CopyNotebookOptions):
     await graphFetch(`/drives/${targetDrive.id}/items/${existing.id}`, token, { method: "DELETE" });
   }
 
+  const copyDeadline = Date.now() + COPY_WAIT_TIMEOUT_MS;
   const response = await graphFetch(`/drives/${source.driveId}/items/${source.folderId}/copy`, token, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -612,10 +671,11 @@ export async function copyTemplateNotebookToGroup(options: CopyNotebookOptions):
   if (!response.ok && response.status !== 202) {
     throw new Error(`Copying notebook "${name}" failed: ${response.status} ${await response.text()}`);
   }
-
   const monitorUrl = response.headers.get("Location");
   if (monitorUrl) {
-    await waitForCopyToFinish(monitorUrl);
+    await waitForCopyToFinish(monitorUrl, copyDeadline);
+  } else if (response.status === 202) {
+    throw new Error(`Copying notebook "${name}" was accepted without a status URL; completion cannot be verified.`);
   }
 
   const copied = await findCopy();
@@ -680,6 +740,7 @@ export async function copyTemplateSectionsToGroup(options: CopyTemplateOptions):
   const defaultSectionName = needsDefaultSection
     ? await resolveDefaultSectionName(targetNotebook, token)
     : undefined;
+  const copyDeadline = Date.now() + COPY_WAIT_TIMEOUT_MS;
 
   for (const mapping of mappings) {
     const sourceSection = sourceSections.find((s) => normalizeName(s.item.name) === normalizeName(mapping.from));
@@ -697,7 +758,7 @@ export async function copyTemplateSectionsToGroup(options: CopyTemplateOptions):
           ? sourceSection.item.name
           : mapping.to;
 
-    await copySectionFile(sourceSection.notebook, sourceSection.item.id, targetNotebook, targetName, token);
+    await copySectionFile(sourceSection.notebook, sourceSection.item, targetNotebook, targetName, token, copyDeadline);
     copied.push({ from: normalizeName(sourceSection.item.name), to: normalizeName(targetName) });
   }
 

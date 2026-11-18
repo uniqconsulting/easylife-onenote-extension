@@ -368,6 +368,8 @@ Die Teams-Registerkarte eines Kanals ist fest an den Standardabschnitt des Notiz
 ...&templateSectionName=Status%20meeting&targetSectionName=%40default
 ```
 
+Die Function sucht gezielt nach einem bekannten Standardabschnitt (`General`, `Allgemein` oder `Meeting Notes`). In der Netcloud-Konfiguration wird `Meeting Notes` als Zielabschnitt verwendet. Ist kein bekannter Name vorhanden, bricht sie mit einem Fehler ab, statt eine beliebige Section zu überschreiben.
+
 > **Anzeigename gegen Dateiname:** Die Function arbeitet auf den `.one`-Dateien. Der in OneNote angezeigte Abschnittsname steckt jedoch **innerhalb** der Datei. Wurde ein Abschnitt in OneNote umbenannt, können beide auseinanderlaufen: Die Datei heißt zum Beispiel `Status meeting.one`, OneNote zeigt aber `Meeting Notes`. Für `templateSectionName` gilt immer der **Dateiname**, den die Fehlermeldung unter `Available sections` auflistet. Der im Ziel angezeigte Name kommt weiterhin aus der Datei und bleibt deshalb `Meeting Notes`, unabhängig von `targetSectionName`.
 
 Das Ziel wird nicht in der URL konfiguriert. EasyLife sendet die neue Gruppen-ID nach der Bereitstellung im Payload, normalerweise unter `group.id`.
@@ -502,7 +504,9 @@ Ein erfolgreicher Aufruf sieht ungefähr so aus:
 
 ### Abschnitte erscheinen nicht in OneNote
 
-Die Function kopiert Abschnittsdateien in den Notizbuch-Ordner. OneNote nimmt sie erst in sein Inhaltsverzeichnis (`.onetoc2`) auf, wenn das Notizbuch geöffnet und synchronisiert wird. Neu kopierte Abschnitte können daher verzögert erscheinen.
+Die Function wartet bis zu 150 Sekunden auf die Bestätigung von Microsoft Graph und prüft, ob jede `.one`-Datei im Ziel dieselbe Grösse wie die Vorlagendatei hat. Meldet Graph einen Fehler, kann der Status nicht geprüft werden oder stimmen die Dateien vor Ablauf des Zeitlimits nicht überein, antwortet der Webhook mit einem Fehler statt mit Erfolg. EasyLife kann den fehlgeschlagenen Lauf dann anzeigen oder wiederholen.
+
+Nach bestätigtem Kopieren muss OneNote die Abschnittsdateien noch in sein Inhaltsverzeichnis (`.onetoc2`) aufnehmen, wenn das Notizbuch geöffnet und synchronisiert wird. Neu kopierte Abschnitte können daher weiterhin verzögert erscheinen.
 
 Prüfe zuerst das Aufrufergebnis. `filesInTargetNotebook` zeigt, was physisch im Zielordner liegt:
 
